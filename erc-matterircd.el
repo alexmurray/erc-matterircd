@@ -67,7 +67,8 @@
 
 (defun erc-matterircd-connect-to-mattermost (server nick)
   "Try login to mattermost on SERVER with NICK."
-  (when (string-match "matterircd" server)
+  ;; server should contain matterircd somewhere in it
+  (when (string-match-p "matterircd" server)
     (erc-message "PRIVMSG"
                  (format "mattermost login %s %s %s %s"
                          erc-matterircd-server erc-matterircd-team
