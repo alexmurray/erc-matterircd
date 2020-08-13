@@ -113,7 +113,7 @@ second, just leave the URL and let erc-image do the hard work."
         (delete-region (match-beginning 0) (match-end 0))
         (insert url)))))
 
-(defun erc-mattermost-pcomplete-erc-nicks (orig-fun &rest args)
+(defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
   (let ((nicks (apply orig-fun args)))
     (if (eq 'matterircd (erc-network))
@@ -124,8 +124,8 @@ second, just leave the URL and let erc-image do the hard work."
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
-   (advice-add #'pcomplete-erc-nicks :around #'erc-mattermost-pcomplete-erc-nicks)
    (add-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs t)
+   (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    ;; we want to make sure we come before erc-image-show-url in
    ;; erc-insert-modify-hook
    (when (member 'erc-image-show-url erc-insert-modify-hook)
@@ -134,7 +134,7 @@ second, just leave the URL and let erc-image do the hard work."
      (add-hook 'erc-insert-modify-hook 'erc-image-show-url t)))
   ((remove-hook 'erc-after-connect 'erc-matterircd-connect-to-mattermost)
    (remove-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs)
-   (advice-remove 'pcomplete-erc-nicks 'erc-mattermost-pcomplete-erc-nicks))
+   (advice-remove 'pcomplete-erc-nicks 'erc-matterircd-pcomplete-erc-nicks))
   t)
 
 (provide 'erc-matterircd)
