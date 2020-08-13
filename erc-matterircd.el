@@ -113,6 +113,22 @@ second, just leave the URL and let erc-image do the hard work."
         (delete-region (match-beginning 0) (match-end 0))
         (insert url)))))
 
+(defun erc-matterircd-format-actions ()
+  "Format /me actions correctly.
+For each /me we see the message as
+*message*
+
+In mattermost this is shown as italic, so rewrite it to use
+italics instead."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "\\*\\(.*\\))\\*" nil t)
+      (let ((message (match-string-no-properties 1)))
+        (delete-region (match-beginning 0) (match-end 0))
+        ;; erc-italic-face is only in very recent emacs 28 so use italic
+        ;; for now
+        (insert (propertize message 'face 'italic))))))
+
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
   (let ((nicks (apply orig-fun args)))
@@ -123,9 +139,12 @@ second, just leave the URL and let erc-image do the hard work."
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
-   (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs t)
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
+   (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
+   ;; use a depth of -99 so we get added first and -98 so gif cleanup
+   ;; occurs before actions
+   (add-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs -99)
+   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-actions -98)
    ;; we want to make sure we come before erc-image-show-url in
    ;; erc-insert-modify-hook
    (when (member 'erc-image-show-url erc-insert-modify-hook)
@@ -133,6 +152,7 @@ second, just leave the URL and let erc-image do the hard work."
      (remove-hook 'erc-insert-modify-hook 'erc-image-show-url)
      (add-hook 'erc-insert-modify-hook 'erc-image-show-url t)))
   ((remove-hook 'erc-after-connect 'erc-matterircd-connect-to-mattermost)
+   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-actions)
    (remove-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs)
    (advice-remove 'pcomplete-erc-nicks 'erc-matterircd-pcomplete-erc-nicks))
   t)
