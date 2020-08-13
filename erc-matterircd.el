@@ -44,6 +44,7 @@
 (require 'erc)
 (require 'erc-button)
 (require 'erc-networks)
+(require 'erc-pcomplete)
 
 (defgroup erc-matterircd nil
   "Integrate ERC with matterircd"
