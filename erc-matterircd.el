@@ -91,20 +91,21 @@ In mattermost this is shown as:
 So we want to rewrite the first to show similarly (and make the
 [name] bit be a button to link to the image, and then for the
 second, just leave the URL and let erc-image do the hard work."
-  (goto-char (point-min))
-  (while (re-search-forward "\\*\\/gif \\[\\(.*\\)\\](\\(.*\\))\\*" nil t)
-    (let ((name (match-string-no-properties 1))
-          (url (match-string-no-properties 2)))
-      (let (start end)
-        (delete-region (match-beginning 0) (match-end 0))
-        (insert "/gif ")
-        (setq start (point))
-        (insert name)
-        (setq end (point))
-        (erc-button-add-button start end
-                               erc-matterircd-view-gif-url-function
-                               nil
-                               (list url)))))
+  (when (eq' 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "\\*\\/gif \\[\\(.*\\)\\](\\(.*\\))\\*" nil t)
+      (let ((name (match-string-no-properties 1))
+            (url (match-string-no-properties 2)))
+        (let (start end)
+          (delete-region (match-beginning 0) (match-end 0))
+          (insert "/gif ")
+          (setq start (point))
+          (insert name)
+          (setq end (point))
+          (erc-button-add-button start end
+                                 erc-matterircd-view-gif-url-function
+                                 nil
+                                 (list url))))))
   (goto-char (point-min))
   (while (re-search-forward "!\\[GIF for '.*'\\](\\(.*\\))" nil t)
     (let ((url (match-string-no-properties 1)))
