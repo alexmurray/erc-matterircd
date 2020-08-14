@@ -25,10 +25,11 @@
 
 ;;; Commentary:
 
-;; Helpers to cleanup /gif and easy display via erc-image (although this is
-;; not required, it is recommended), also will automatically connect to
-;; mattermost when connecting to a matterircd server, and finally ensures @
-;; is prepended when completing nicknames in when connected to matterircd.
+;; Helpers to format *italic* and [link](url) plus removal of redundant GIF
+;; bits for easy display via erc-image (although this is not required, it
+;; is recommended), also will automatically connect to mattermost when
+;; connecting to a matterircd server, and finally ensures @ is prepended
+;; when completing nicknames in when connected to matterircd.
 
 ;; (require 'erc-matterircd)
 ;; (setq erc-matterircd-server "mattermost.server")
@@ -74,12 +75,43 @@
                          erc-matterircd-server erc-matterircd-team
                          nick erc-matterircd-password))))
 
-(defvar erc-matterircd-view-gif-url-function #'browse-url
-  "Function used to view /gif URLs.")
+(defun erc-matterircd-format-links ()
+  "Format links sent via matterircd.
+Links use markdown syntax of [name](url) so tag name to
+open url via `browse-url-buttton-open-url'."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "\\[\\(.*\\)\\](\\(.*?\\))" nil t)
+      (let ((name (match-string-no-properties 1))
+            (url (match-string-no-properties 2))
+            (start (match-beginning 0)))
+        (replace-match name)
+        ;; erc-button removes old keymaps etc when it runs later - so for
+        ;; now just set text-properties so we can actually buttonize it in
+        ;; a hook which will run after erc-button / erc-fill etc
+        (set-text-properties start (point)
+                             `(erc-matterircd-link-url ,url))))))
+
+(defun erc-matterircd-buttonize-links ()
+  "Format links sent via matterircd.
+Links use markdown syntax of [name](url) so buttonize name to
+open url via `browse-url-buttton-open-url'."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (let ((match))
+      (while (setq match (text-property-search-forward 'erc-matterircd-link-url))
+        (erc-button-add-button (prop-match-beginning match)
+                               (prop-match-end match)
+                               #'browse-url-button-open-url
+                               nil
+                               (list (prop-match-value match)))
+        (remove-text-properties (prop-match-beginning match)
+                                (prop-match-end match)
+                                '(erc-matterircd-link-url nil))))))
 
 (defun erc-matterircd-cleanup-gifs ()
   "Cleanup gifs sent via matterircd.
-For each /gif we see two messages:
+For each /gif we see two lines in the message:
 
  */gif [name](URL)*
 ![GIF for 'name'](URL)
@@ -88,46 +120,45 @@ In mattermost this is shown as:
 /gif name
 [image]
 
-So we want to rewrite the first to show similarly (and make the
-[name] bit be a button to link to the image, and then for the
-second, just leave the URL and let erc-image do the hard work."
-  (when (eq' 'matterircd (erc-network))
-    (goto-char (point-min))
-    (while (re-search-forward "\\*\\/gif \\[\\(.*\\)\\](\\(.*\\))\\*" nil t)
-      (let ((name (match-string-no-properties 1))
-            (url (match-string-no-properties 2)))
-        (let (start end)
-          (delete-region (match-beginning 0) (match-end 0))
-          (insert "/gif ")
-          (setq start (point))
-          (insert name)
-          (setq end (point))
-          (erc-button-add-button start end
-                                 erc-matterircd-view-gif-url-function
-                                 nil
-                                 (list url))))))
-  (goto-char (point-min))
-  (while (re-search-forward "!\\[GIF for '.*'\\](\\(.*\\))" nil t)
-    (let ((url (match-string-no-properties 1)))
-      (let (start end)
-        (delete-region (match-beginning 0) (match-end 0))
-        (insert url)))))
-
-(defun erc-matterircd-format-actions ()
-  "Format /me actions correctly.
-For each /me we see the message as
-*message*
-
-In mattermost this is shown as italic, so rewrite it to use
-italics instead."
+`erc-matterircd-format-links' will handle the first line, so for
+the second, just leave the URL and let erc-image do the hard
+work."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (re-search-forward "\\*\\(.*\\))\\*" nil t)
-      (let ((message (match-string-no-properties 1)))
-        (delete-region (match-beginning 0) (match-end 0))
+    (while (re-search-forward "!\\[GIF for '.*'\\](\\(.*?\\))" nil t)
+      (let ((url (match-string 1)))
+        (replace-match url)))))
+
+(defun erc-matterircd-format-italics ()
+  "Format *italics* correctly.
+Italics are sent *message*
+
+In mattermost this is shown as italic, so rewrite it to use
+italic face instead."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (or (re-search-forward "\\*\\(.*\\)\\*" nil t)
+               (re-search-forward "_\\(.*\\)_" nil t))
+      (let ((message (match-string 1)))
         ;; erc-italic-face is only in very recent emacs 28 so use italic
         ;; for now
-        (insert (propertize message 'face 'italic))))))
+        (replace-match (propertize message
+                                   'face
+                                   (if (facep 'erc-italic-face)
+                                       'erc-italic-face
+                                     'italic)))))))
+
+(defun erc-matterircd-format-bolds ()
+  "Format **bold** correctly.
+Bolds are sent **message**
+
+In mattermost this is shown as bold, so rewrite it to use
+bold face instead."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "\\*\\*\\(.*\\)\\*\\*" nil t)
+      (let ((message (match-string 1)))
+        (replace-match (propertize message 'face 'erc-bold-face))))))
 
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
@@ -141,10 +172,14 @@ italics instead."
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
-   ;; use a depth of -99 so we get added first and -98 so gif cleanup
-   ;; occurs before actions
+   ;; remove gifs junk, format bold, then italics, then links
    (add-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs -99)
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-actions -98)
+   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-bolds -98)
+   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-italics -97)
+   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-links -96)
+   ;; erc-button unbuttonizes text so we need to do this after everything
+   ;; else
+   (add-hook 'erc-insert-modify-hook 'erc-matterircd-buttonize-links '99)
    ;; we want to make sure we come before erc-image-show-url in
    ;; erc-insert-modify-hook
    (when (member 'erc-image-show-url erc-insert-modify-hook)
@@ -152,7 +187,10 @@ italics instead."
      (remove-hook 'erc-insert-modify-hook 'erc-image-show-url)
      (add-hook 'erc-insert-modify-hook 'erc-image-show-url t)))
   ((remove-hook 'erc-after-connect 'erc-matterircd-connect-to-mattermost)
-   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-actions)
+   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-buttonize-links)
+   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-links)
+   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-italics)
+   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-bolds)
    (remove-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs)
    (advice-remove 'pcomplete-erc-nicks 'erc-matterircd-pcomplete-erc-nicks))
   t)
