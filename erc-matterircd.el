@@ -137,16 +137,17 @@ In mattermost this is shown as italic, so rewrite it to use
 italic face instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (or (re-search-forward "\\*\\(.*\\)\\*" nil t)
-               (re-search-forward "_\\(.*\\)_" nil t))
+    (while (or (re-search-forward " \\*\\(.*\\)\\* " nil t)
+               (re-search-forward " _\\(.*\\)_ " nil t))
       (let ((message (match-string 1)))
         ;; erc-italic-face is only in very recent emacs 28 so use italic
         ;; for now
-        (replace-match (propertize message
-                                   'face
-                                   (if (facep 'erc-italic-face)
-                                       'erc-italic-face
-                                     'italic)))))))
+        (replace-match (concat " " (propertize message
+                                                'face
+                                                (if (facep 'erc-italic-face)
+                                                    'erc-italic-face
+                                                  'italic))
+                               " "))))))
 
 (defun erc-matterircd-format-bolds ()
   "Format **bold** correctly.
@@ -156,9 +157,11 @@ In mattermost this is shown as bold, so rewrite it to use
 bold face instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (re-search-forward "\\*\\*\\(.*\\)\\*\\*" nil t)
+    (while (re-search-forward " \\*\\*\\(.*\\)\\*\\* " nil t)
       (let ((message (match-string 1)))
-        (replace-match (propertize message 'face 'erc-bold-face))))))
+        (replace-match (concat " "
+                               (propertize message 'face 'erc-bold-face)
+                               " "))))))
 
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
