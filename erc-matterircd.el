@@ -81,7 +81,7 @@ Links use markdown syntax of [name](url) so tag name to
 open url via `browse-url-buttton-open-url'."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (re-search-forward "\\[\\(.*\\)\\](\\(.*?\\))" nil t)
+    (while (re-search-forward "\\[\\([^\\[]*\\)\\](\\(.*?\\))" nil t)
       (let ((name (match-string-no-properties 1))
             (url (match-string-no-properties 2))
             (start (match-beginning 0)))
