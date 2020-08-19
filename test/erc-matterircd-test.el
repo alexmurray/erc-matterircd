@@ -27,7 +27,7 @@
       (erc-matterircd-format-bolds)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "bold" 'face 'bold) " "))))))
+               (concat " " (propertize "bold" 'face 'erc-bold-face) " "))))))
 
 (ert-deftest erc-matterircd-test-links ()
   "Test that [link](url) gets handled appropriately."
