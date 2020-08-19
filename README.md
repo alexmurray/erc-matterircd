@@ -7,6 +7,13 @@ to use [Mattermost](https://mattermost.org/) via
 
 ## Features
 
+- Connect automatically to Mattermost once the connection to `matterircd`
+  has been established
+- Prepend `@` to IRC nicks when completing nicks on `matterircd` servers so
+  that notifications to other users work correctly
+- Display `**bold text**` correctly as **bold text**
+- Display `_italic text_` correctly as _italic text_
+- Display `[link text](url)` as [link text](url)
 - Cleanup display of `/gif` to turn:
 ```
 <foo>  */gif [name](URL)*
@@ -22,12 +29,6 @@ Into:
 When used with [`erc-image`](https://github.com/kidd/erc-image.el) this
 ensures GIFs are only displayed once, and that they are hyperlinked via
 just their `name` for easy display as well.
-
-- Prepend `@` to IRC nicks on `matterircd` servers so that notifications to
-  other users work correctly
-- Connect automatically to Mattermost once the connection to `matterircd`
-  has been established
-  
 
 ## Usage
 
