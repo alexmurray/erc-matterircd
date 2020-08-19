@@ -1,4 +1,4 @@
-;;; erc-matterircd.el --- matterircd integration for ERC         -*- lexical-binding: t; -*-
+;;; erc-matterircd.el --- Integrate matterircd with ERC         -*- lexical-binding: t; -*-
 
 ;; Copyright (c) 2020 Alex Murray
 
