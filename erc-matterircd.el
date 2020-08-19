@@ -6,7 +6,7 @@
 ;; Maintainer: Alex Murray <murray.alex@gmail.com>
 ;; URL: https://github.com/alexmurray/erc-matterircd
 ;; Version: 0.1
-;; Package-Requires: ((emacs "24.4"))
+;; Package-Requires: ((emacs "27.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -129,6 +129,14 @@ work."
       (let ((url (match-string 1)))
         (replace-match url)))))
 
+(defvar erc-matterircd-italic-face
+  "Convenience definition of the face to use for italic text.
+
+Will use `erc-italic-face' if it is available, otherwise `italic'."
+  (if (facep 'erc-italic-face)
+      'erc-italic-face
+    'italic))
+
 (defun erc-matterircd-format-italics ()
   "Format *italics* correctly.
 Italics are sent *message*
@@ -137,17 +145,12 @@ In mattermost this is shown as italic, so rewrite it to use
 italic face instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (or (re-search-forward " \\*\\(.*\\)\\* " nil t)
-               (re-search-forward " _\\(.*\\)_ " nil t))
-      (let ((message (match-string 1)))
+    (while (re-search-forward "\\(\\*\\|_\\)\\([^\\1]+?\\)\\1" nil t)
+      (let ((message (match-string 2)))
         ;; erc-italic-face is only in very recent emacs 28 so use italic
         ;; for now
-        (replace-match (concat " " (propertize message
-                                                'face
-                                                (if (facep 'erc-italic-face)
-                                                    'erc-italic-face
-                                                  'italic))
-                               " "))))))
+        (replace-match (propertize message 'face
+                                   erc-matterircd-italic-face))))))
 
 (defun erc-matterircd-format-bolds ()
   "Format **bold** correctly.
@@ -157,11 +160,9 @@ In mattermost this is shown as bold, so rewrite it to use
 bold face instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (re-search-forward " \\*\\*\\(.*\\)\\*\\* " nil t)
+    (while (re-search-forward "\\*\\*\\(.*?\\)\\*\\*" nil t)
       (let ((message (match-string 1)))
-        (replace-match (concat " "
-                               (propertize message 'face 'erc-bold-face)
-                               " "))))))
+        (replace-match (propertize message 'face 'erc-bold-face))))))
 
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
