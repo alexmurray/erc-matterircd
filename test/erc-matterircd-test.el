@@ -6,7 +6,7 @@
 (require 'erc-matterircd)
 
 ;;; Code:
-(ert-deftest erc-matterircd-test-italic ()
+(ert-deftest erc-matterircd-test-italics ()
   "Test that *italic* / _italic_ gets handled appropriately."
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
@@ -18,7 +18,7 @@
                (concat " " (propertize "italic asterisk" 'face erc-matterircd-italic-face)
                        " " (propertize "italic underscore" 'face erc-matterircd-italic-face) " "))))))
 
-(ert-deftest erc-matterircd-test-bold ()
+(ert-deftest erc-matterircd-test-bolds ()
   "Test that **bold**_ gets handled appropriately."
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
