@@ -46,6 +46,7 @@
 (require 'erc-button)
 (require 'erc-networks)
 (require 'erc-pcomplete)
+(require 'text-property-search)
 
 (defgroup erc-matterircd nil
   "Integrate ERC with matterircd"
