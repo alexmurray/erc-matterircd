@@ -131,12 +131,12 @@ work."
         (replace-match url)))))
 
 (defvar erc-matterircd-italic-face
-  "Convenience definition of the face to use for italic text.
-
-Will use `erc-italic-face' if it is available, otherwise `italic'."
   (if (facep 'erc-italic-face)
       'erc-italic-face
-    'italic))
+    'italic)
+  "Convenience definition of the face to use for italic text.
+
+Will use `erc-italic-face' if it is available, otherwise `italic'.")
 
 (defun erc-matterircd-format-italics ()
   "Format *italics* correctly.
