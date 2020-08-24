@@ -48,6 +48,8 @@
 (require 'erc-pcomplete)
 (require 'text-property-search)
 
+(declare-function erc-image-show-url "erc-image")
+
 (defgroup erc-matterircd nil
   "Integrate ERC with matterircd"
   :group 'erc)
@@ -187,7 +189,8 @@ bold face instead."
    (add-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links '99)
    ;; we want to make sure we come before erc-image-show-url in
    ;; erc-insert-modify-hook
-   (when (member #'erc-image-show-url erc-insert-modify-hook)
+   (when (and (fboundp 'erc-image-show-url)
+              (member #'erc-image-show-url erc-insert-modify-hook))
      ;; remove and re-add to get appended
      (remove-hook 'erc-insert-modify-hook #'erc-image-show-url)
      (add-hook 'erc-insert-modify-hook #'erc-image-show-url t)))
@@ -202,5 +205,3 @@ bold face instead."
 
 (provide 'erc-matterircd)
 ;;; erc-matterircd.el ends here
-
-
