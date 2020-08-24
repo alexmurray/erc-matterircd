@@ -21,7 +21,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -169,7 +169,7 @@ bold face instead."
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
   (let ((nicks (apply orig-fun args)))
     (if (eq 'matterircd (erc-network))
-        (mapcar #'(lambda (nick) (concat "@" nick)) nicks)
+        (mapcar (lambda (nick) (concat "@" nick)) nicks)
       nicks)))
 
 (define-erc-module matterircd nil
@@ -178,26 +178,26 @@ bold face instead."
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    ;; remove gifs junk, format bold, then italics, then links
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs -99)
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-bolds -98)
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-italics -97)
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-format-links -96)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-cleanup-gifs -99)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-bolds -98)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-italics -97)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-links -96)
    ;; erc-button unbuttonizes text so we need to do this after everything
    ;; else
-   (add-hook 'erc-insert-modify-hook 'erc-matterircd-buttonize-links '99)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links '99)
    ;; we want to make sure we come before erc-image-show-url in
    ;; erc-insert-modify-hook
-   (when (member 'erc-image-show-url erc-insert-modify-hook)
+   (when (member #'erc-image-show-url erc-insert-modify-hook)
      ;; remove and re-add to get appended
-     (remove-hook 'erc-insert-modify-hook 'erc-image-show-url)
-     (add-hook 'erc-insert-modify-hook 'erc-image-show-url t)))
-  ((remove-hook 'erc-after-connect 'erc-matterircd-connect-to-mattermost)
-   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-buttonize-links)
-   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-links)
-   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-italics)
-   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-format-bolds)
-   (remove-hook 'erc-insert-modify-hook 'erc-matterircd-cleanup-gifs)
-   (advice-remove 'pcomplete-erc-nicks 'erc-matterircd-pcomplete-erc-nicks))
+     (remove-hook 'erc-insert-modify-hook #'erc-image-show-url)
+     (add-hook 'erc-insert-modify-hook #'erc-image-show-url t)))
+  ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
+   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links)
+   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-links)
+   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-italics)
+   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-bolds)
+   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-cleanup-gifs)
+   (advice-remove 'pcomplete-erc-nicks #'erc-matterircd-pcomplete-erc-nicks))
   t)
 
 (provide 'erc-matterircd)
