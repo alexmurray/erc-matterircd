@@ -141,19 +141,23 @@ work."
 Will use `erc-italic-face' if it is available, otherwise `italic'.")
 
 (defun erc-matterircd-format-italics ()
-  "Format *italics* correctly.
-Italics are sent *message*
+  "Format *italics* or _italics_ correctly.
+Italics are sent *message* or _message_
 
 In mattermost this is shown as italic, so rewrite it to use
 italic face instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (re-search-forward "\\(\\*\\|_\\)\\([^\\1]+?\\)\\1" nil t)
+    ;; underscores need to be either at the start of end or space delimited
+    ;; whereas asterisks can be anywhere
+    (while (or (re-search-forward "\\(\\*\\([^\\*]+?\\)\\*\\)" nil t)
+               (re-search-forward "\\_<\\(_\\([^_]+?\\)_\\)\\_>" nil t))
       (let ((message (match-string 2)))
         ;; erc-italic-face is only in very recent emacs 28 so use italic
         ;; for now
         (replace-match (propertize message 'face
-                                   erc-matterircd-italic-face))))))
+                                   erc-matterircd-italic-face)
+                       t t nil 1)))))
 
 (defun erc-matterircd-format-bolds ()
   "Format **bold** correctly.

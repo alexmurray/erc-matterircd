@@ -16,7 +16,32 @@
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
                (concat " " (propertize "italic asterisk" 'face erc-matterircd-italic-face)
-                       " " (propertize "italic underscore" 'face erc-matterircd-italic-face) " "))))))
+                       " " (propertize "italic underscore" 'face erc-matterircd-italic-face) " ")))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "*italic asterisk* _italic underscore_")
+      (erc-matterircd-format-italics)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat (propertize "italic asterisk" 'face erc-matterircd-italic-face) " "
+                       (propertize "italic underscore" 'face erc-matterircd-italic-face))))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "foo_bar_baz")
+      (erc-matterircd-format-italics)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               "foo_bar_baz"))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "foo_bar baz_ ")
+      (erc-matterircd-format-italics)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               "foo_bar baz_ ")))))
 
 (ert-deftest erc-matterircd-test-bolds ()
   "Test that **bold**_ gets handled appropriately."
