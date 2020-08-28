@@ -167,6 +167,22 @@ bold face instead."
       (let ((message (match-string 1)))
         (replace-match (propertize message 'face 'erc-bold-face))))))
 
+(defface erc-matterircd-strikethrough-face
+  '((t (:strike-through t)))
+  "Face to show ~~strikethough~~ text.")
+
+(defun erc-matterircd-format-strikethroughs ()
+  "Format ~~strikethrough~~ correctly.
+Strikethroughs are sent ~~message~~
+
+In mattermost this is shown as strikethrough, so rewrite it to use
+strikethrough face attribute instead."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "~~\\(.*?\\)~~" nil t)
+      (let ((message (match-string 1)))
+        (replace-match (propertize message 'face 'erc-matterircd-strikethrough-face))))))
+
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
   (let ((nicks (apply orig-fun args)))
@@ -183,7 +199,8 @@ bold face instead."
    (add-hook 'erc-insert-modify-hook #'erc-matterircd-cleanup-gifs -99)
    (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-bolds -98)
    (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-italics -97)
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-links -96)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-strikethroughs -96)
+   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-links -95)
    ;; erc-button unbuttonizes text so we need to do this after everything
    ;; else
    (add-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links '99)
@@ -197,6 +214,7 @@ bold face instead."
   ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    (remove-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links)
    (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-links)
+   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-strikethroughs)
    (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-italics)
    (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-bolds)
    (remove-hook 'erc-insert-modify-hook #'erc-matterircd-cleanup-gifs)

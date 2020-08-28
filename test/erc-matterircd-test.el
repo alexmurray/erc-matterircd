@@ -29,6 +29,17 @@
                (buffer-substring (point-min) (point-max))
                (concat " " (propertize "bold" 'face 'erc-bold-face) " "))))))
 
+(ert-deftest erc-matterircd-test-strikethroughs ()
+  "Test that ~~strikethrough~~_ gets handled appropriately."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert " ~~strikethrough~~ ")
+      (erc-matterircd-format-strikethroughs)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat " " (propertize "strikethrough" 'face 'erc-matterircd-strikethrough-face) " "))))))
+
 (ert-deftest erc-matterircd-test-links ()
   "Test that [link](url) gets handled appropriately."
   (with-temp-buffer
