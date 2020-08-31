@@ -160,16 +160,18 @@ italic face instead."
                        t t nil 1)))))
 
 (defun erc-matterircd-format-bolds ()
-  "Format **bold** correctly.
-Bolds are sent **message**
+  "Format **bold** / or __bolds__ correctly.
+Bolds are sent **message** or __message__
 
 In mattermost this is shown as bold, so rewrite it to use
 bold face instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    (while (re-search-forward "\\*\\*\\(.*?\\)\\*\\*" nil t)
-      (let ((message (match-string 1)))
-        (replace-match (propertize message 'face 'erc-bold-face))))))
+    (while (or (re-search-forward "\\(\\*\\*\\([^\\*]+?\\)\\*\\*\\)" nil t)
+               (re-search-forward "\\_<\\(__\\([^_]+?\\)__\\)\\_>" nil t))
+      (let ((message (match-string 2)))
+        (replace-match (propertize message 'face 'erc-bold-face)
+                       t t nil 1)))))
 
 (defface erc-matterircd-strikethrough-face
   '((t (:strike-through t)))

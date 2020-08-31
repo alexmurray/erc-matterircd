@@ -44,15 +44,41 @@
                "foo_bar baz_ ")))))
 
 (ert-deftest erc-matterircd-test-bolds ()
-  "Test that **bold**_ gets handled appropriately."
+  "Test that **bold** / __bold__ gets handled appropriately."
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
                (lambda () 'matterircd)))
-      (insert " **bold** ")
+      (insert " **bold asterisk** __bold underscore__ ")
       (erc-matterircd-format-bolds)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "bold" 'face 'erc-bold-face) " "))))))
+               (concat " " (propertize "bold asterisk" 'face 'erc-bold-face)
+                       " " (propertize "bold underscore" 'face 'erc-bold-face) " ")))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "**bold asterisk** __bold underscore__")
+      (erc-matterircd-format-bolds)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat (propertize "bold asterisk" 'face 'erc-bold-face) " "
+                       (propertize "bold underscore" 'face 'erc-bold-face))))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "foo__bar__baz")
+      (erc-matterircd-format-bolds)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               "foo__bar__baz"))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "foo__bar baz__ ")
+      (erc-matterircd-format-bolds)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               "foo__bar baz__ ")))))
 
 (ert-deftest erc-matterircd-test-strikethroughs ()
   "Test that ~~strikethrough~~_ gets handled appropriately."
