@@ -211,28 +211,30 @@ strikethrough face attribute instead."
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    ;; remove gifs junk, format bold, then italics, then links
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-cleanup-gifs -99)
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-bolds -98)
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-italics -97)
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-strikethroughs -96)
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-format-links -95)
-   ;; erc-button unbuttonizes text so we need to do this after everything
-   ;; else
-   (add-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links '99)
-   ;; we want to make sure we come before erc-image-show-url in
-   ;; erc-insert-modify-hook
-   (when (and (fboundp 'erc-image-show-url)
-              (member #'erc-image-show-url erc-insert-modify-hook))
-     ;; remove and re-add to get appended
-     (remove-hook 'erc-insert-modify-hook #'erc-image-show-url)
-     (add-hook 'erc-insert-modify-hook #'erc-image-show-url t)))
+   (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
+     (add-hook hook #'erc-matterircd-cleanup-gifs -99)
+     (add-hook hook #'erc-matterircd-format-bolds -98)
+     (add-hook hook #'erc-matterircd-format-italics -97)
+     (add-hook hook #'erc-matterircd-format-strikethroughs -96)
+     (add-hook hook #'erc-matterircd-format-links -95)
+     ;; erc-button unbuttonizes text so we need to do this after everything
+     ;; else
+     (add-hook hook #'erc-matterircd-buttonize-links '99)
+     ;; we want to make sure we come before erc-image-show-url in
+     ;; erc-insert-modify-hook
+     (when (and (fboundp 'erc-image-show-url)
+                (member #'erc-image-show-url (eval hook)))
+       ;; remove and re-add to get appended
+       (remove-hook hook #'erc-image-show-url)
+       (add-hook hook #'erc-image-show-url t))))
   ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
-   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-buttonize-links)
-   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-links)
-   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-strikethroughs)
-   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-italics)
-   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-format-bolds)
-   (remove-hook 'erc-insert-modify-hook #'erc-matterircd-cleanup-gifs)
+   (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
+     (remove-hook hook #'erc-matterircd-buttonize-links)
+     (remove-hook hook #'erc-matterircd-format-links)
+     (remove-hook hook #'erc-matterircd-format-strikethroughs)
+     (remove-hook hook #'erc-matterircd-format-italics)
+     (remove-hook hook #'erc-matterircd-format-bolds)
+     (remove-hook hook #'erc-matterircd-cleanup-gifs))
    (advice-remove 'pcomplete-erc-nicks #'erc-matterircd-pcomplete-erc-nicks))
   t)
 
