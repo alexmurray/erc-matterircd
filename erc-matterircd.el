@@ -41,6 +41,15 @@
 ;; Then connect to matterircd as a normal erc server:
 ;; (erc :server "localhost" :port "6667" :nick "mynick")
 
+;;; TODO:
+
+;; - Support post/thread replies / reactions
+;;   - remove thread id prefix/suffix and store as text property that
+;;     displays on hover
+;;   - provide autocomplete for known thread ids
+;;   - don't show reactions but instead append it to the original message
+;;     with properties so can show who on hover
+
 ;;; Code:
 (require 'erc)
 (require 'erc-button)
