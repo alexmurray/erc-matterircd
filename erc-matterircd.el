@@ -73,6 +73,11 @@
   :group 'erc-matterircd
   :type 'string)
 
+(defcustom erc-matterircd-updatelastviewed-on-buffer-switch nil
+  "Whether to automatically send updatelastviewed when switching buffers."
+  :group 'erc-matterircd
+  :type 'boolean)
+
 (defcustom erc-matterircd-password nil
   "The password to use for mattermost to connect via matterircd."
   :group 'erc-matterircd
@@ -217,11 +222,31 @@ Defaults to 10 lines if none specified."
         (erc-server-send (format "PRIVMSG mattermost :scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
+(defun erc-cmd-UPDATELASTVIEWED ()
+  "Send updatelastviewed for the current channel."
+  (if (eq 'matterircd (erc-network))
+      (let ((target (erc-default-target)))
+        (erc-log (format "cmd: DEFAULT: updatelastviewed %s" target))
+        (erc-server-send (format "PRIVMSG mattermost :updatelastviewed %s" target)))
+    (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
+
+(defvar erc-matterircd--last-buffer nil
+  "The last matterircd buffer which was viewed.")
+
+(defun erc-matterircd-maybe-updatelastviewed ()
+  "Automatically send updatelastviewed for the current channel on FRAME if desired."
+  (when (and (eq 'matterircd (erc-network))
+             (not (eq (current-buffer) erc-matterircd--last-buffer)))
+    (setq erc-matterircd--last-buffer (current-buffer))
+    (when erc-matterircd-updatelastviewed-on-buffer-switch
+      (erc-cmd-UPDATELASTVIEWED))))
+
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
+   (add-hook 'post-command-hook #'erc-matterircd-maybe-updatelastviewed)
    ;; remove gifs junk, format bold, then italics, then links
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
      (add-hook hook #'erc-matterircd-cleanup-gifs -99)
