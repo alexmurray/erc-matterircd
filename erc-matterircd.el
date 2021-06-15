@@ -205,6 +205,18 @@ strikethrough face attribute instead."
         (mapcar (lambda (nick) (concat "@" nick)) nicks)
       nicks)))
 
+(defun erc-cmd-SCROLLBACK (&optional num-lines)
+  "Request scrollback for the current channel of NUM-LINES.
+
+Defaults to 10 lines if none specified."
+  (if (eq 'matterircd (erc-network))
+      (let ((target (erc-default-target))
+            (lines (or (and (integerp num-lines) num-lines)
+                       10)))
+        (erc-log (format "cmd: DEFAULT: SCROLLBACK %s %d" target lines))
+        (erc-server-send (format "PRIVMSG mattermost :scrollback %s %d" target lines)))
+    (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
+
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
