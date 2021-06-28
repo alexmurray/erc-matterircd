@@ -100,19 +100,53 @@
       (erc-matterircd-format-links)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "text" 'erc-matterircd-link-url "url") " ")))
-      (erc-matterircd-buttonize-links)
+               (concat " " (propertize "text"
+                                       'erc-matterircd-link-url "url"
+                                       'help-echo "url")
+                       " ")))
+      (erc-matterircd-buttonize-from-text-properties)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
                (concat " " (propertize "text"
                                        'font-lock-face 'erc-button
                                        'mouse-face 'highlight
                                        'erc-callback 'browse-url-button-open-url
+                                       'erc-matterircd-link-url "url"
+                                       'help-echo "url"
                                        'keymap erc-button-keymap
                                        'rear-nonsticky t
                                        'erc-data '("url"))
                        " "))))))
 
+(ert-deftest erc-matterircd-test-context-ids ()
+  "Test that [001] gets handled appropriately."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert " foo [001] ")
+      (let ((erc-matterircd-replace-context-id nil))
+        (erc-matterircd-format-contexts))
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat " foo " (propertize "[001]"
+                                           'erc-matterircd-context-id "001"
+                                           'erc-matterircd-source " foo [001] "
+                                           'help-echo "[001]")
+                       " ")))
+      (erc-matterircd-buttonize-from-text-properties)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat " foo " (propertize "[001]"
+                                       'font-lock-face 'erc-button
+                                       'mouse-face 'highlight
+                                       'erc-callback 'erc-matterircd-reply-to-context-id
+                                       'erc-matterircd-context-id "001"
+                                       'erc-matterircd-source " foo [001] "
+                                       'help-echo "[001]"
+                                       'keymap erc-button-keymap
+                                       'rear-nonsticky t
+                                       'erc-data '("001"))
+                       " "))))))
 (provide 'erc-matterircd-test)
 ;;; erc-matterircd-test.el ends here
 
