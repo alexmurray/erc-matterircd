@@ -56,6 +56,7 @@
 (require 'text-property-search)
 
 (declare-function erc-image-show-url "erc-image")
+(declare-function company-doc-buffer "company")
 
 (defgroup erc-matterircd nil
   "Integrate ERC with matterircd."
