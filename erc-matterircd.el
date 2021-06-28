@@ -203,6 +203,32 @@ strikethrough face attribute instead."
       (let ((message (match-string 1)))
         (replace-match (propertize message 'face 'erc-matterircd-strikethrough-face))))))
 
+(defvar erc-matterircd--pending-responses nil)
+
+(defun erc-matterircd-PRIVMSG (_proc parsed)
+  "Intercept and handle PARSED response from the mattermost user."
+  (let ((sender (car (erc-parse-user (erc-response.sender parsed))))
+        (contents (erc-response.contents parsed))
+        (handled nil))
+    (when (string= sender "mattermost")
+      (pcase contents
+        ((rx bos "set viewed for " (let channel (group (one-or-more any))) eos)
+         ;; channel name doesn't contain # prefix but it does in our
+         ;; list of pending responses
+         (remhash (concat "#" channel)
+                  erc-matterircd--pending-responses)
+         ;; respects users wish to suppress responses
+         (setq handled erc-matterircd-suppress-mattermost-responses))
+        ((rx bos "updatelastviewed" (zero-or-more any) eos)
+         ;; is an error regarding a previous call to updatelastviewed
+         ;; respects users wish to suppress responses
+         (setq handled erc-matterircd-suppress-mattermost-responses)))
+      ;; for any pending responses, re-send
+      (maphash #'(lambda (channel _time)
+                   (erc-cmd-UPDATELASTVIEWED channel))
+               erc-matterircd--pending-responses))
+    handled))
+
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
   "Advice for `pcomplete-erc-nicks' to prepend an @ via ORIG-FUN and ARGS."
   (let ((nicks (apply orig-fun args)))
@@ -222,12 +248,23 @@ Defaults to 10 lines if none specified."
         (erc-server-send (format "PRIVMSG mattermost :scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
-(defun erc-cmd-UPDATELASTVIEWED ()
-  "Send updatelastviewed for the current channel."
+(defun erc-cmd-UPDATELASTVIEWED (&optional channel)
+  "Send updatelastviewed for CHANNEL (or current channel if not specified)."
   (if (eq 'matterircd (erc-network))
-      (let ((target (erc-default-target)))
-        (erc-log (format "cmd: DEFAULT: updatelastviewed %s" target))
-        (erc-server-send (format "PRIVMSG mattermost :updatelastviewed %s" target)))
+      (let* ((target (or channel (erc-default-target)))
+             (now (time-convert nil 'integer))
+             (last-time (gethash target erc-matterircd--pending-responses)))
+        ;; the mattermost user is fake plus we can't seem to
+        ;; updatelastviewed for the channel with ourself so skip both of
+        ;; these
+        (when (and (not (or (string= target "mattermost")
+                            (string= target (erc-current-nick))))
+                   (> (- now (or last-time 0)) 5))
+          ;; keep original time
+          (unless last-time
+            (puthash target now erc-matterircd--pending-responses))
+          (erc-log (format "cmd: DEFAULT: updatelastviewed %s" target))
+          (erc-server-send (format "PRIVMSG mattermost :updatelastviewed %s" target))))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
 (defvar erc-matterircd--last-buffer nil
@@ -241,22 +278,38 @@ Defaults to 10 lines if none specified."
     (when erc-matterircd-updatelastviewed-on-buffer-switch
       (erc-cmd-UPDATELASTVIEWED))))
 
+(defvar erc-matterircd--run-first-hook-functions
+  `(,#'erc-matterircd-cleanup-gifs
+    ,#'erc-matterircd-format-bolds
+    ,#'erc-matterircd-format-italics
+    ,#'erc-matterircd-format-strikethroughs
+    ,#'erc-matterircd-format-links
+    ,#'erc-matterircd-format-reactions
+    ,#'erc-matterircd-format-contexts))
+
+;; erc-button unbuttonizes text so we need to re-buttonize after everything
+;; else
+(defvar erc-matterircd--run-last-hook-functions
+  `(,#'erc-matterircd-buttonize-from-text-properties))
+
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    (add-hook 'post-command-hook #'erc-matterircd-maybe-updatelastviewed)
-   ;; remove gifs junk, format bold, then italics, then links
+   (setq erc-matterircd--pending-responses (make-hash-table :test 'equal))
+   ;; ensure we can handle but also suppress responses from mattermost
+   (add-hook 'erc-server-PRIVMSG-functions #'erc-matterircd-PRIVMSG -99)
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
-     (add-hook hook #'erc-matterircd-cleanup-gifs -99)
-     (add-hook hook #'erc-matterircd-format-bolds -98)
-     (add-hook hook #'erc-matterircd-format-italics -97)
-     (add-hook hook #'erc-matterircd-format-strikethroughs -96)
-     (add-hook hook #'erc-matterircd-format-links -95)
-     ;; erc-button unbuttonizes text so we need to do this after everything
-     ;; else
-     (add-hook hook #'erc-matterircd-buttonize-links '99)
+     (let ((depth -99))
+       (dolist (func erc-matterircd--run-first-hook-functions)
+         (add-hook hook func depth)
+         (cl-incf depth)))
+     (let ((depth 99))
+       (dolist (func erc-matterircd--run-last-hook-functions)
+         (add-hook hook func depth)
+         (cl-decf depth)))
      ;; we want to make sure we come before erc-image-show-url in
      ;; erc-insert-modify-hook
      (when (and (fboundp 'erc-image-show-url)
@@ -266,12 +319,9 @@ Defaults to 10 lines if none specified."
        (add-hook hook #'erc-image-show-url t))))
   ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
-     (remove-hook hook #'erc-matterircd-buttonize-links)
-     (remove-hook hook #'erc-matterircd-format-links)
-     (remove-hook hook #'erc-matterircd-format-strikethroughs)
-     (remove-hook hook #'erc-matterircd-format-italics)
-     (remove-hook hook #'erc-matterircd-format-bolds)
-     (remove-hook hook #'erc-matterircd-cleanup-gifs))
+     (dolist (func (append erc-matterircd--run-last-hook-functions
+                           erc-matterircd--run-first-hook-functions))
+       (remove-hook hook func)))
    (advice-remove 'pcomplete-erc-nicks #'erc-matterircd-pcomplete-erc-nicks))
   t)
 
