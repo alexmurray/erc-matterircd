@@ -324,12 +324,14 @@ Defaults to the current buffer if none specified."
         (let ((context-ids nil)
               (match nil))
           (while (setq match (text-property-search-forward 'erc-matterircd-context-id))
-            (push (cons (prop-match-value match)
-                        (cons (current-buffer)
-                              ;; after searching point is just past the
-                              ;; location
-                              (1- (point))))
-                  context-ids))
+            (let ((id (prop-match-value match)))
+              (unless (alist-get id context-ids nil nil #'equal)
+                (push (cons (prop-match-value match)
+                            (cons (current-buffer)
+                                  ;; after searching point is just past the
+                                  ;; location
+                                  (1- (point))))
+                      context-ids))))
           context-ids))))
 
 (defun erc-matterircd--get-docsig-for-context-id (id context-ids)
