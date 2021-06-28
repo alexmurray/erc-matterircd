@@ -484,7 +484,9 @@ Defaults to 10 lines if none specified."
      (dolist (func (append erc-matterircd--run-last-hook-functions
                            erc-matterircd--run-first-hook-functions))
        (remove-hook hook func)))
-   (advice-remove 'pcomplete-erc-nicks #'erc-matterircd-pcomplete-erc-nicks))
+   (delete #'erc-matterircd-complete-context-ids completion-at-point-functions)
+   (advice-remove 'pcomplete-erc-nicks #'erc-matterircd-pcomplete-erc-nicks)
+   (delete '(matterircd "matterircd.*") erc-networks-alist ))
   t)
 
 (provide 'erc-matterircd)
