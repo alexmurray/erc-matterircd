@@ -43,10 +43,7 @@
 
 ;;; TODO:
 
-;; - Support post/thread replies / reactions
-;;   - remove thread id prefix/suffix and store as text property that
-;;     displays on hover
-;;   - provide autocomplete for known thread ids
+;; - Improve support post/thread replies / reactions
 ;;   - don't show reactions but instead append it to the original message
 ;;     with properties so can show who on hover
 
@@ -55,12 +52,13 @@
 (require 'erc-button)
 (require 'erc-networks)
 (require 'erc-pcomplete)
+(require 'rx)
 (require 'text-property-search)
 
 (declare-function erc-image-show-url "erc-image")
 
 (defgroup erc-matterircd nil
-  "Integrate ERC with matterircd"
+  "Integrate ERC with matterircd."
   :group 'erc)
 
 (defcustom erc-matterircd-server nil
@@ -73,15 +71,39 @@
   :group 'erc-matterircd
   :type 'string)
 
+(defcustom erc-matterircd-password nil
+  "The password to use for mattermost to connect via matterircd."
+  :group 'erc-matterircd
+  :type 'string)
+
 (defcustom erc-matterircd-updatelastviewed-on-buffer-switch nil
   "Whether to automatically send updatelastviewed when switching buffers."
   :group 'erc-matterircd
   :type 'boolean)
 
-(defcustom erc-matterircd-password nil
-  "The password to use for mattermost to connect via matterircd."
+(defcustom erc-matterircd-insert-fake-context-id-on-send t
+  "Whether to display a local faked context ID when sending messages.
+
+NOTE: this does not actually result in anything additional
+getting sent to the server, just in what is displayed to the user
+locally.")
+
+(defcustom erc-matterircd-replace-context-id nil
+  "Whether to replace context IDs in messages with a replacement string.
+
+If this is non-nil then replace context IDs in messages with the
+value of this variable."
   :group 'erc-matterircd
   :type 'string)
+
+(defcustom erc-matterircd-suppress-mattermost-responses t
+  "Whether to suppress responses from the mattermost user.
+
+When sending updatelastviewed and other commands to the
+mattermost user, we receive responses as privmsg - suppress these
+by default as they are usually not important."
+  :group 'erc-matterircd
+  :type 'boolean)
 
 (defun erc-matterircd-connect-to-mattermost (server nick)
   "Try login to mattermost on SERVER with NICK."
@@ -99,32 +121,47 @@ open url via `browse-url-buttton-open-url'."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
     (while (re-search-forward "\\[\\([^\\[]*\\)\\](\\(.*?\\))" nil t)
-      (let ((name (match-string-no-properties 1))
-            (url (match-string-no-properties 2))
-            (start (match-beginning 0)))
+      (let* ((name (match-string-no-properties 1))
+             (url (match-string-no-properties 2))
+             (start (match-beginning 0)))
         (replace-match name)
         ;; erc-button removes old keymaps etc when it runs later - so for
         ;; now just set text-properties so we can actually buttonize it in
         ;; a hook which will run after erc-button / erc-fill etc
         (set-text-properties start (point)
-                             `(erc-matterircd-link-url ,url))))))
+                             (list 'erc-matterircd-link-url url
+                                   'help-echo url))))))
 
-(defun erc-matterircd-buttonize-links ()
-  "Format links sent via matterircd.
-Links use markdown syntax of [name](url) so buttonize name to
-open url via `browse-url-buttton-open-url'."
+(defun erc-matterircd-reply-to-context-id (context-id)
+  "Go to erc prompt and start a reply to the post with CONTEXT-ID."
+  ;; go to prompt and insert text so we can reply
+  (when (and erc-input-marker (< (point) erc-input-marker))
+    (deactivate-mark)
+    (push-mark)
+    (goto-char (point-max))
+    (ignore-errors (kill-whole-line))
+    (insert (concat "@@" context-id " "))))
+
+(defun erc-matterircd-buttonize-from-text-properties ()
+  "Buttonize text based on pre-existing text properties.
+
+Buttonize links to open url via `browse-url-buttton-open-url' and
+thread contexts so can reply."
   (when (eq 'matterircd (erc-network))
-    (goto-char (point-min))
-    (let ((match))
-      (while (setq match (text-property-search-forward 'erc-matterircd-link-url))
-        (erc-button-add-button (prop-match-beginning match)
-                               (prop-match-end match)
-                               #'browse-url-button-open-url
-                               nil
-                               (list (prop-match-value match)))
-        (remove-text-properties (prop-match-beginning match)
-                                (prop-match-end match)
-                                '(erc-matterircd-link-url nil))))))
+    (dolist (props `((:property erc-matterircd-link-url
+                                :function ,#'browse-url-button-open-url)
+                     (:property erc-matterircd-context-id
+                                :function ,#'erc-matterircd-reply-to-context-id)))
+      (goto-char (point-min))
+      (let ((prop (plist-get props :property))
+            (func (plist-get props :function))
+            (match))
+        (while (setq match (text-property-search-forward prop))
+          (erc-button-add-button (prop-match-beginning match)
+                                 (prop-match-end match)
+                                 func
+                                 nil
+                                 (list (prop-match-value match))))))))
 
 (defun erc-matterircd-cleanup-gifs ()
   "Cleanup gifs sent via matterircd.
@@ -203,6 +240,44 @@ strikethrough face attribute instead."
       (let ((message (match-string 1)))
         (replace-match (propertize message 'face 'erc-matterircd-strikethrough-face))))))
 
+(defun erc-matterircd-format-reactions ()
+  "Format reactions sent via matterircd."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "added reaction: \\([^[:space:]]*\\)" nil t)
+      (let ((name (match-string-no-properties 1)))
+        (replace-match (concat ":" name ":") nil nil nil 1)))))
+
+(defvar erc-matterircd-context-regexp
+  "\\[\\([0-9a-f]\\{3\\}\\)\\(->\\([0-9a-f]\\{3\\}\\)\\)?\\]")
+
+(defun erc-matterircd-format-contexts ()
+  "Format [xxx] contexts as text properties.
+
+matterircd can be configured to prefix/suffix posts with a
+context id that can be referred to in subsequent posts to reply
+to, edit or delete a post."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    ;; this is either a prefix or suffix to the message
+    (when (or (re-search-forward (concat "^\\s-*\\(" erc-matterircd-context-regexp "\\) ") nil t)
+              (re-search-forward (concat " \\(" erc-matterircd-context-regexp "\\)\\s-*$") nil t))
+      ;; delete and propertize message with the context id
+      (let ((full-id (match-string-no-properties 1))
+            (context-id (match-string-no-properties 2))
+            (start (match-beginning 1))
+            (end (match-end 1))
+            (source (buffer-substring-no-properties
+                     (point-min) (point-max))))
+        (when erc-matterircd-replace-context-id
+          (replace-match erc-matterircd-replace-context-id
+                         nil nil nil 1)
+          (setq end (point)))
+        (add-text-properties start end
+                             (list 'erc-matterircd-context-id context-id
+                                   'erc-matterircd-source source
+                                   'help-echo full-id))))))
+
 (defvar erc-matterircd--pending-responses nil)
 
 (defun erc-matterircd-PRIVMSG (_proc parsed)
@@ -235,6 +310,58 @@ strikethrough face attribute instead."
     (if (eq 'matterircd (erc-network))
         (mapcar (lambda (nick) (concat "@" nick)) nicks)
       nicks)))
+
+(defun erc-matterircd--context-ids (&optional buffer)
+  "Get the list of context IDs and locations for BUFFER in MRU order.
+
+Defaults to the current buffer if none specified."
+    (with-current-buffer (or buffer (current-buffer))
+      (save-excursion
+        (goto-char (point-min))
+        (let ((context-ids nil)
+              (match nil))
+          (while (setq match (text-property-search-forward 'erc-matterircd-context-id))
+            (push (cons (prop-match-value match)
+                        (cons (current-buffer)
+                              ;; after searching point is just past the
+                              ;; location
+                              (1- (point))))
+                  context-ids))
+          context-ids))))
+
+(defun erc-matterircd--get-docsig-for-context-id (id context-ids)
+  "Get the docsig for ID from the list of CONTEXT-IDS."
+  (let ((location (alist-get id context-ids nil nil #'equal)))
+    (if location
+        (get-text-property (cdr location)
+                           'erc-matterircd-source
+                           (car location))
+      "")))
+
+(defun erc-matterircd-complete-context-ids (&optional _candidate)
+  "Complete context-ids for replies."
+  (when (and (eq 'matterircd (erc-network))
+             (not (null (string-match-p "^@@[0-9]\\{0,3\\}$" (erc-user-input)))))
+        ;; find the list of context-ids in the current buffer
+        (let* ((context-ids (erc-matterircd--context-ids))
+               (candidates
+                (mapcar (lambda (id) (cons (concat "@@" (car id) " ") (cdr id))) context-ids))
+              (bounds (bounds-of-thing-at-point 'word)))
+          (list (car bounds) (cdr bounds)
+                candidates
+                :exclusive 'no
+                :annotation-function (lambda (id)
+                                       (erc-matterircd--get-docsig-for-context-id
+                                        id candidates))
+                :company-docsig (lambda (id)
+                                  (erc-matterircd--get-docsig-for-context-id
+                                   id candidates))
+                :company-doc-buffer (lambda (id)
+                                      (company-doc-buffer
+                                       (erc-matterircd--get-docsig-for-context-id
+                                        id candidates)))
+                :company-location (lambda (id)
+                                    (cdr (alist-get id context-ids nil nil #'equal)))))))
 
 (defun erc-cmd-SCROLLBACK (&optional num-lines)
   "Request scrollback for the current channel of NUM-LINES.
@@ -278,6 +405,28 @@ Defaults to 10 lines if none specified."
     (when erc-matterircd-updatelastviewed-on-buffer-switch
       (erc-cmd-UPDATELASTVIEWED))))
 
+(defun erc-matterircd--get-next-context-id (context-ids)
+  "Get the next context ID which would be allocated from CONTEXT-IDS."
+  (if (> (length context-ids) 0)
+      (let* ((next (1+ (string-to-number (car (car context-ids))))))
+        (format "%03d" (mod next 1000)))
+    "001"))
+
+(defun erc-matterircd-insert-fake-context-id ()
+  "Insert a fake local context ID for sent messages."
+  (when (and (eq 'matterircd (erc-network))
+             erc-matterircd-insert-fake-context-id-on-send)
+    (let ((id (erc-matterircd--get-next-context-id
+               ;; need to widen as we are narrowed
+               (save-restriction
+                 (widen)
+                 (erc-matterircd--context-ids)))))
+     (save-excursion
+       (goto-char (point-max))
+       ;; find first non-blank content
+       (re-search-backward "[^\\s-]")
+       (insert (concat " [" id "]"))))))
+
 (defvar erc-matterircd--run-first-hook-functions
   `(,#'erc-matterircd-cleanup-gifs
     ,#'erc-matterircd-format-bolds
@@ -296,6 +445,7 @@ Defaults to 10 lines if none specified."
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
+   (add-to-list 'completion-at-point-functions #'erc-matterircd-complete-context-ids)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    (add-hook 'post-command-hook #'erc-matterircd-maybe-updatelastviewed)
    (setq erc-matterircd--pending-responses (make-hash-table :test 'equal))
@@ -317,7 +467,11 @@ Defaults to 10 lines if none specified."
        ;; remove and re-add to get appended
        (remove-hook hook #'erc-image-show-url)
        (add-hook hook #'erc-image-show-url t))))
+   ;; also ensure we can insert our own fake content ID on sent messages is
+   ;; required
+   (add-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id -99)
   ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
+   (remove-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id)
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
      (dolist (func (append erc-matterircd--run-last-hook-functions
                            erc-matterircd--run-first-hook-functions))
