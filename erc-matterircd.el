@@ -348,7 +348,7 @@ Defaults to the current buffer if none specified."
         ;; find the list of context-ids in the current buffer
         (let* ((context-ids (erc-matterircd--context-ids))
                (candidates
-                (mapcar (lambda (id) (cons (concat "@@" (car id) " ") (cdr id))) context-ids))
+                (mapcar (lambda (id) (cons (concat "@@" (car id)) (cdr id))) context-ids))
               (bounds (bounds-of-thing-at-point 'word)))
           (list (car bounds) (cdr bounds)
                 candidates
