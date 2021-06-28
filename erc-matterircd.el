@@ -86,7 +86,9 @@
 
 NOTE: this does not actually result in anything additional
 getting sent to the server, just in what is displayed to the user
-locally.")
+locally."
+  :group 'erc-matterircd
+  :type 'boolean)
 
 (defcustom erc-matterircd-replace-context-id nil
   "Whether to replace context IDs in messages with a replacement string.
@@ -466,10 +468,10 @@ Defaults to 10 lines if none specified."
                 (member #'erc-image-show-url (eval hook)))
        ;; remove and re-add to get appended
        (remove-hook hook #'erc-image-show-url)
-       (add-hook hook #'erc-image-show-url t))))
+       (add-hook hook #'erc-image-show-url t)))
    ;; also ensure we can insert our own fake content ID on sent messages is
    ;; required
-   (add-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id -99)
+   (add-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id -99))
   ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    (remove-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id)
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
