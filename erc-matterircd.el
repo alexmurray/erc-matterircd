@@ -234,6 +234,19 @@ strikethrough face attribute instead."
       (let ((message (match-string 1)))
         (replace-match (propertize message 'face 'erc-matterircd-strikethrough-face))))))
 
+(defface erc-matterircd-monospace-face
+  '((t (:inherit fixed-pitch-serif)))
+  "Face to show `monospace` text.")
+
+(defun erc-matterircd-format-monospace ()
+  "Format `monospace` correctly.
+monospace text is sent as `monospace`."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "`\\([^`]+?\\)`" nil t)
+      (let ((message (match-string 1)))
+        (replace-match (propertize message 'face 'erc-matterircd-monospace-face))))))
+
 (defun erc-matterircd-format-reactions ()
   "Format reactions sent via matterircd."
   (when (eq 'matterircd (erc-network))
@@ -419,6 +432,7 @@ Defaults to 10 lines if none specified."
     ,#'erc-matterircd-format-bolds
     ,#'erc-matterircd-format-italics
     ,#'erc-matterircd-format-strikethroughs
+    ,#'erc-matterircd-format-monospace
     ,#'erc-matterircd-format-links
     ,#'erc-matterircd-format-reactions
     ,#'erc-matterircd-format-contexts))
