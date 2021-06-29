@@ -123,14 +123,14 @@
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
                (lambda () 'matterircd)))
-      (insert " foo [001] ")
+      (insert " foo [001]")
       (let ((erc-matterircd-replace-context-id nil))
         (erc-matterircd-format-contexts))
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
                (concat " foo " (propertize "[001]"
                                            'erc-matterircd-context-id "001"
-                                           'erc-matterircd-source " foo [001] "
+                                           'erc-matterircd-source " foo [001]"
                                            'help-echo "[001]")
                        " ")))
       (erc-matterircd-buttonize-from-text-properties)
@@ -141,7 +141,7 @@
                                        'mouse-face 'highlight
                                        'erc-callback 'erc-matterircd-reply-to-context-id
                                        'erc-matterircd-context-id "001"
-                                       'erc-matterircd-source " foo [001] "
+                                       'erc-matterircd-source " foo [001]"
                                        'help-echo "[001]"
                                        'keymap erc-button-keymap
                                        'rear-nonsticky t

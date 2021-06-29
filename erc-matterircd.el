@@ -267,6 +267,9 @@ to, edit or delete a post."
           (replace-match erc-matterircd-replace-context-id
                          nil nil nil 1)
           (setq end (point)))
+        ;; ensure text properties don't get filled onto the next line by
+        ;; adding an extra space which won't have any properties
+        (insert " ")
         (add-text-properties start end
                              (list 'erc-matterircd-context-id context-id
                                    'erc-matterircd-source source
