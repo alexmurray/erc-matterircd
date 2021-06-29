@@ -366,8 +366,7 @@ Defaults to the current buffer if none specified."
                                        (let ((docsig
                                               (erc-matterircd--get-docsig-for-context-id
                                                id candidates)))
-                                         (substring docsig
-                                          0 (min (length docsig) 40))))
+                                         (truncate-string-to-width docsig 40)))
                 :company-docsig (lambda (id)
                                   (erc-matterircd--get-docsig-for-context-id
                                    id candidates))
