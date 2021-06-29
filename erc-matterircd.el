@@ -117,14 +117,15 @@ open url via `browse-url-buttton-open-url'."
     (while (re-search-forward "\\[\\([^\\[]*\\)\\](\\(.*?\\))" nil t)
       (let* ((name (match-string-no-properties 1))
              (url (match-string-no-properties 2))
-             (start (match-beginning 0)))
-        (replace-match name)
+             (start (match-beginning 0))
+             (end (match-end 0)))
         ;; erc-button removes old keymaps etc when it runs later - so for
         ;; now just set text-properties so we can actually buttonize it in
         ;; a hook which will run after erc-button / erc-fill etc
-        (set-text-properties start (point)
+        (set-text-properties start end
                              (list 'erc-matterircd-link-url url
-                                   'help-echo url))))))
+                                   'help-echo url
+                                   'display name))))))
 
 (defun erc-matterircd-reply-to-context-id (context-id)
   "Go to erc prompt and start a reply to the post with CONTEXT-ID."
@@ -200,9 +201,10 @@ italic face instead."
       (let ((message (match-string 2)))
         ;; erc-italic-face is only in very recent emacs 28 so use italic
         ;; for now
-        (replace-match (propertize message 'face
-                                   erc-matterircd-italic-face)
-                       t t nil 1)))))
+        (put-text-property (match-beginning 0) (match-end 0)
+                           'display
+                           (propertize message 'face
+                                       erc-matterircd-italic-face))))))
 
 (defun erc-matterircd-format-bolds ()
   "Format **bold** / or __bolds__ correctly.
@@ -215,8 +217,9 @@ bold face instead."
     (while (or (re-search-forward "\\(\\*\\*\\([^\\*]+?\\)\\*\\*\\)" nil t)
                (re-search-forward "\\_<\\(__\\([^_]+?\\)__\\)\\_>" nil t))
       (let ((message (match-string 2)))
-        (replace-match (propertize message 'face 'erc-bold-face)
-                       t t nil 1)))))
+        (put-text-property (match-beginning 0) (match-end 0)
+                           'display
+                           (propertize message 'face 'erc-bold-face))))))
 
 (defface erc-matterircd-strikethrough-face
   '((t (:strike-through t)))
@@ -232,7 +235,9 @@ strikethrough face attribute instead."
     (goto-char (point-min))
     (while (re-search-forward "~~\\(.*?\\)~~" nil t)
       (let ((message (match-string 1)))
-        (replace-match (propertize message 'face 'erc-matterircd-strikethrough-face))))))
+        (put-text-property (match-beginning 0) (match-end 0)
+                           'display
+                           (propertize message 'face 'erc-matterircd-strikethrough-face))))))
 
 (defface erc-matterircd-monospace-face
   '((t (:inherit fixed-pitch-serif)))
@@ -245,7 +250,9 @@ monospace text is sent as `monospace`."
     (goto-char (point-min))
     (while (re-search-forward "`\\([^`]+?\\)`" nil t)
       (let ((message (match-string 1)))
-        (replace-match (propertize message 'face 'erc-matterircd-monospace-face))))))
+        (put-text-property (match-beginning 0) (match-end 0)
+                           'display
+                           (propertize message 'face 'erc-matterircd-monospace-face))))))
 
 (defun erc-matterircd-format-reactions ()
   "Format reactions sent via matterircd."
@@ -277,16 +284,16 @@ to, edit or delete a post."
             (source (buffer-substring-no-properties
                      (point-min) (point-max))))
         (when erc-matterircd-replace-context-id
-          (replace-match erc-matterircd-replace-context-id
-                         nil nil nil 1)
-          (setq end (point)))
-        ;; ensure text properties don't get filled onto the next line by
-        ;; adding an extra space which won't have any properties
-        (insert " ")
+          (put-text-property start end
+                             'display erc-matterircd-replace-context-id))
         (add-text-properties start end
                              (list 'erc-matterircd-context-id context-id
                                    'erc-matterircd-source source
-                                   'help-echo full-id))))))
+                                   'help-echo full-id))
+        ;; ensure text properties don't get filled onto the next line by
+        ;; adding an extra space which won't have any properties
+        (goto-char (1+ end))
+        (insert " ")))))
 
 (defvar erc-matterircd--pending-responses nil)
 
