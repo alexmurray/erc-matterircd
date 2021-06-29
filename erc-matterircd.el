@@ -429,7 +429,7 @@ Defaults to 10 lines if none specified."
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
-   (add-to-list 'completion-at-point-functions #'erc-matterircd-complete-context-ids)
+   (add-to-list 'erc-complete-functions #'erc-matterircd-complete-context-ids)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
    (add-hook 'post-command-hook #'erc-matterircd-maybe-updatelastviewed)
    (setq erc-matterircd--pending-responses (make-hash-table :test 'equal))
@@ -456,7 +456,7 @@ Defaults to 10 lines if none specified."
      (dolist (func (append erc-matterircd--run-last-hook-functions
                            erc-matterircd--run-first-hook-functions))
        (remove-hook hook func)))
-   (delete #'erc-matterircd-complete-context-ids completion-at-point-functions)
+   (delete #'erc-matterircd-complete-context-ids erc-complete-functions)
    (advice-remove 'pcomplete-erc-nicks #'erc-matterircd-pcomplete-erc-nicks)
    (delete '(matterircd "matterircd.*") erc-networks-alist ))
   t)
