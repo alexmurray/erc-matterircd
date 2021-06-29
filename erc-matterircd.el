@@ -82,15 +82,6 @@
   :group 'erc-matterircd
   :type 'boolean)
 
-(defcustom erc-matterircd-insert-fake-context-id-on-send t
-  "Whether to display a local faked context ID when sending messages.
-
-NOTE: this does not actually result in anything additional
-getting sent to the server, just in what is displayed to the user
-locally."
-  :group 'erc-matterircd
-  :type 'boolean)
-
 (defcustom erc-matterircd-replace-context-id nil
   "Whether to replace context IDs in messages with a replacement string.
 
@@ -420,21 +411,6 @@ Defaults to 10 lines if none specified."
         (format "%03d" (mod next 1000)))
     "001"))
 
-(defun erc-matterircd-insert-fake-context-id ()
-  "Insert a fake local context ID for sent messages."
-  (when (and (eq 'matterircd (erc-network))
-             erc-matterircd-insert-fake-context-id-on-send)
-    (let ((id (erc-matterircd--get-next-context-id
-               ;; need to widen as we are narrowed
-               (save-restriction
-                 (widen)
-                 (erc-matterircd--context-ids)))))
-     (save-excursion
-       (goto-char (point-max))
-       ;; find first non-blank content
-       (re-search-backward "[^\\s-]")
-       (insert (concat " [" id "]"))))))
-
 (defvar erc-matterircd--run-first-hook-functions
   `(,#'erc-matterircd-cleanup-gifs
     ,#'erc-matterircd-format-bolds
@@ -474,12 +450,8 @@ Defaults to 10 lines if none specified."
                 (member #'erc-image-show-url (eval hook)))
        ;; remove and re-add to get appended
        (remove-hook hook #'erc-image-show-url)
-       (add-hook hook #'erc-image-show-url t)))
-   ;; also ensure we can insert our own fake content ID on sent messages is
-   ;; required
-   (add-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id -99))
+       (add-hook hook #'erc-image-show-url t))))
   ((remove-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
-   (remove-hook 'erc-send-modify-hook #'erc-matterircd-insert-fake-context-id)
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
      (dolist (func (append erc-matterircd--run-last-hook-functions
                            erc-matterircd--run-first-hook-functions))
