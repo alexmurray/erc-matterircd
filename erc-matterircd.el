@@ -57,6 +57,8 @@
 
 (declare-function erc-image-show-url "erc-image")
 (declare-function company-doc-buffer "company")
+(defvar erc-track-mode)
+(defvar erc-modified-channels-alist)
 
 (defgroup erc-matterircd nil
   "Integrate ERC with matterircd."
@@ -469,7 +471,10 @@ will always resend if FORCE."
   (when (and (eq 'matterircd (erc-network))
              (not (eq (current-buffer) erc-matterircd--last-buffer)))
     (setq erc-matterircd--last-buffer (current-buffer))
-    (when erc-matterircd-updatelastviewed-on-buffer-switch
+    (when (and erc-matterircd-updatelastviewed-on-buffer-switch
+               (or (null (boundp 'erc-track-mode))
+                   (and erc-track-mode
+                        (alist-get (current-buffer) erc-modified-channels-alist))))
       (erc-cmd-UPDATELASTVIEWED))))
 
 (defun erc-matterircd--get-next-context-id (context-ids)
