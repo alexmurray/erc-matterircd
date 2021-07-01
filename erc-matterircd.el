@@ -295,7 +295,9 @@ to, edit or delete a post."
         (goto-char (1+ end))
         (insert " ")))))
 
-(defvar erc-matterircd--pending-responses nil)
+(defvar erc-matterircd--pending-requests nil)
+
+(defvar erc-matterircd--pending-requests-timer nil)
 
 (defun erc-matterircd-PRIVMSG (_proc parsed)
   "Intercept and handle PARSED response from the mattermost user."
@@ -307,18 +309,33 @@ to, edit or delete a post."
         ((rx bos "set viewed for " (let channel (group (one-or-more any))) eos)
          ;; channel name doesn't contain # prefix but it does in our
          ;; list of pending responses
-         (remhash (concat "#" channel)
-                  erc-matterircd--pending-responses)
+         (setq channel (concat "#" channel))
+         (unless (string= (caar erc-matterircd--pending-requests)
+                          channel)
+           (message "!!! Unexpected channel %s for set viewed - expected %s !!!"
+                    channel
+                    (caar erc-matterircd--pending-requests)))
+         (setq erc-matterircd--pending-requests
+               (cl-remove channel erc-matterircd--pending-requests
+                          :test #'string= :key #'car))
+         ;; cancel timer - it will get reset if there are pending
+         ;; requests
+         (when (timerp erc-matterircd--pending-requests-timer)
+           (cancel-timer erc-matterircd--pending-requests-timer)
+           (setq erc-matterircd--pending-requests-timer nil))
+         ;; since we received a response request the next in line and force
+         ;; this to happen
+         (when (> (length erc-matterircd--pending-requests) 0)
+           (let ((channel (caar erc-matterircd--pending-requests)))
+             (with-current-buffer (erc-get-buffer channel)
+               (erc-cmd-UPDATELASTVIEWED channel t))))
          ;; respects users wish to suppress responses
          (setq handled erc-matterircd-suppress-mattermost-responses))
-        ((rx bos "updatelastviewed" (zero-or-more any) eos)
-         ;; is an error regarding a previous call to updatelastviewed
-         ;; respects users wish to suppress responses
-         (setq handled erc-matterircd-suppress-mattermost-responses)))
-      ;; for any pending responses, re-send
-      (maphash #'(lambda (channel _time)
-                   (erc-cmd-UPDATELASTVIEWED channel))
-               erc-matterircd--pending-responses))
+        ;; ((rx bos "updatelastviewed" (zero-or-more any) eos)
+        ;;  ;; is an error regarding a previous call to updatelastviewed
+        ;;  ;; respects users wish to suppress responses
+        ;;  (setq handled erc-matterircd-suppress-mattermost-responses))
+        ))
     handled))
 
 (defun erc-matterircd-pcomplete-erc-nicks (orig-fun &rest args)
@@ -392,28 +409,57 @@ Defaults to 10 lines if none specified."
       (let ((target (erc-default-target))
             (lines (or (and (integerp num-lines) num-lines)
                        10)))
-        (erc-log (format "cmd: DEFAULT: SCROLLBACK %s %d" target lines))
-        (erc-server-send (format "PRIVMSG mattermost :scrollback %s %d" target lines)))
+        (erc-message "PRIVMSG" (format "mattermost scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
-(defun erc-cmd-UPDATELASTVIEWED (&optional channel)
-  "Send updatelastviewed for CHANNEL (or current channel if not specified)."
+(defun erc-matterircd--pending-requests-timeout ()
+  "Timer function called when the pending requests timer expires."
+   (let ((channel (caar erc-matterircd--pending-requests)))
+     (when channel
+       (with-current-buffer (erc-get-buffer channel)
+         (erc-cmd-UPDATELASTVIEWED channel t)))))
+
+;; matterircd seems to concatenate multiple privmsg commands if we send
+;; them too quickly in succession, so instead we want to only send one
+;; in-flight and queue up the others to be processed later
+(defun erc-cmd-UPDATELASTVIEWED (&optional channel force)
+  "Send updatelastviewed for CHANNEL (or current channel if not specified).
+
+Queue up pending requests so we don't overload matterircd, but
+will always resend if FORCE."
+  (setq channel (or channel (erc-default-target)))
   (if (eq 'matterircd (erc-network))
-      (let* ((target (or channel (erc-default-target)))
-             (now (time-convert nil 'integer))
-             (last-time (gethash target erc-matterircd--pending-responses)))
         ;; the mattermost user is fake plus we can't seem to
         ;; updatelastviewed for the channel with ourself so skip both of
         ;; these
-        (when (and (not (or (string= target "mattermost")
-                            (string= target (erc-current-nick))))
-                   (> (- now (or last-time 0)) 5))
-          ;; keep original time
-          (unless last-time
-            (puthash target now erc-matterircd--pending-responses))
-          (erc-log (format "cmd: DEFAULT: updatelastviewed %s" target))
-          (erc-server-send (format "PRIVMSG mattermost :updatelastviewed %s" target))))
-    (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
+        (when (not (or (string= channel "mattermost")
+                       (string= channel (erc-current-nick))))
+          ;; if in the list delete it and add again at the end with the
+          ;; current time
+         (setq erc-matterircd--pending-requests
+               (cl-remove channel erc-matterircd--pending-requests
+                          :test #'string= :key #'car))
+         (add-to-list 'erc-matterircd--pending-requests
+                      (cons channel (time-convert nil 'integer))
+                      ;; when forced push to the front of the list
+                      (not force))
+         (when (or force (= (length erc-matterircd--pending-requests) 1))
+	    ;; force sending so as to avoid flood control as we will resend it
+            ;; ourselves later if required so we don't want to queue up a
+            ;; heap of requests
+            (erc-message "PRIVMSG"
+                         (format "mattermost updatelastviewed %s" channel)
+                         t)
+            ;; cancel any existing timer so we reset it below
+            (when (timerp erc-matterircd--pending-requests-timer)
+              (cancel-timer erc-matterircd--pending-requests-timer)
+              (setq erc-matterircd--pending-requests-timer nil)))
+          ;; ensure timer is running
+          (unless (timerp erc-matterircd--pending-requests-timer)
+            (setq erc-matterircd--pending-requests-timer
+                  (run-with-timer 5 5
+                                  #'erc-matterircd--pending-requests-timeout))))
+    (erc-display-message nil 'error channel 'not-matterircd)))
 
 (defvar erc-matterircd--last-buffer nil
   "The last matterircd buffer which was viewed.")
@@ -451,11 +497,13 @@ Defaults to 10 lines if none specified."
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
+   (erc-define-catalog-entry 'english 'not-matterircd
+                             "This command is specific to matterircd only.")
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-to-list 'erc-complete-functions #'erc-matterircd-complete-context-ids)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
-   (add-hook 'post-command-hook #'erc-matterircd-maybe-updatelastviewed)
-   (setq erc-matterircd--pending-responses (make-hash-table :test 'equal))
+   ;; run before erc-track can lose it's state
+   (add-hook 'post-command-hook #'erc-matterircd-maybe-updatelastviewed -99)
    ;; ensure we can handle but also suppress responses from mattermost
    (add-hook 'erc-server-PRIVMSG-functions #'erc-matterircd-PRIVMSG -99)
    (dolist (hook '(erc-insert-modify-hook erc-send-modify-hook))
