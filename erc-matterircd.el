@@ -289,14 +289,13 @@ to, edit or delete a post."
         (when erc-matterircd-replace-context-id
           (put-text-property start end
                              'display erc-matterircd-replace-context-id))
+        ;; ensure text properties don't get filled onto the next line by
+        ;; erc-fill or erc-insert-timestamp by specifyng rear-nonticky
         (add-text-properties start end
                              (list 'erc-matterircd-context-id context-id
                                    'erc-matterircd-source source
-                                   'help-echo full-id))
-        ;; ensure text properties don't get filled onto the next line by
-        ;; adding an extra space which won't have any properties
-        (goto-char (1+ end))
-        (insert " ")))))
+                                   'help-echo full-id
+                                   'rear-nonsticky t))))))
 
 (defvar erc-matterircd--pending-requests nil)
 
