@@ -334,6 +334,8 @@ to, edit or delete a post."
                (erc-cmd-UPDATELASTVIEWED channel t))))
          ;; respects users wish to suppress responses
          (setq handled erc-matterircd-suppress-mattermost-responses))
+        ((rx bos "login OK" eos)
+         (setq handled erc-matterircd-suppress-mattermost-responses))
         ;; ((rx bos "updatelastviewed" (zero-or-more any) eos)
         ;;  ;; is an error regarding a previous call to updatelastviewed
         ;;  ;; respects users wish to suppress responses
