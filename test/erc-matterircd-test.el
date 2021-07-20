@@ -171,7 +171,8 @@
         (let ((erc-matterircd-replace-context-id replace)
               (props (list 'erc-matterircd-context-id "001"
                            'erc-matterircd-source " foo [001]"
-                           'help-echo "[001]"))
+                           'help-echo "[001]"
+                           'rear-nonsticky t))
               (suffix "[001]"))
           (erc-matterircd-format-contexts)
           (if replace
@@ -180,7 +181,7 @@
                                props suffix)
           (should (ert-equal-including-properties
                    (buffer-substring (point-min) (point-max))
-                   (concat " foo " suffix " ")))
+                   (concat " foo " suffix)))
           (erc-matterircd-buttonize-from-text-properties)
           (setq props (append props (list 'font-lock-face 'erc-button
                                           'mouse-face 'highlight
@@ -192,7 +193,7 @@
                                props suffix)
           (should (ert-equal-including-properties
                    (buffer-substring (point-min) (point-max))
-                   (concat " foo " suffix " "))))))))
+                   (concat " foo " suffix))))))))
 
 (provide 'erc-matterircd-test)
 ;;; erc-matterircd-test.el ends here
