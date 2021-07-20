@@ -280,7 +280,8 @@ to, edit or delete a post."
               (re-search-forward (concat " \\(" erc-matterircd-context-regexp "\\)\\s-*$") nil t))
       ;; delete and propertize message with the context id
       (let ((full-id (match-string-no-properties 1))
-            (context-id (match-string-no-properties 2))
+            (context-id (or (match-string-no-properties 4)
+                            (match-string-no-properties 2)))
             (start (match-beginning 1))
             (end (match-end 1))
             (source (buffer-substring-no-properties
