@@ -309,7 +309,10 @@ to, edit or delete a post."
                      (point-min) (point-max))))
         (when erc-matterircd-replace-context-id
           (put-text-property start end
-                             'display erc-matterircd-replace-context-id))
+                             'display erc-matterircd-replace-context-id)
+          ;; ensure emojify doesn't wreak havoc
+          (put-text-property start end
+                             'emojify-inhibit t))
         ;; ensure text properties don't get filled onto the next line by
         ;; erc-fill or erc-insert-timestamp by specifyng rear-nonticky
         (add-text-properties start end

@@ -197,7 +197,8 @@
               (suffix "[001]"))
           (erc-matterircd-format-contexts)
           (if replace
-              (setq props (append props `(display ,replace))))
+              (setq props (append props (list 'display replace
+                                              'emojify-inhibit t))))
           (set-text-properties 0 (length suffix)
                                props suffix)
           (should (ert-equal-including-properties
