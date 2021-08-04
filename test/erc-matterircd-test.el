@@ -15,10 +15,14 @@
       (erc-matterircd-format-italics)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "*italic asterisk*" 'display
-                                       (propertize "italic asterisk" 'face erc-matterircd-italic-face))
-                       " " (propertize "_italic underscore_" 'display
-                                       (propertize "italic underscore" 'face erc-matterircd-italic-face))
+               (concat " " (propertize "*italic asterisk*"
+                                       'display
+                                       (propertize "italic asterisk" 'face erc-matterircd-italic-face)
+                                       'rear-nonsticky t)
+                       " " (propertize "_italic underscore_"
+                                       'display
+                                       (propertize "italic underscore" 'face erc-matterircd-italic-face)
+                                       'rear-nonsticky t)
                        " ")))))
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
@@ -27,11 +31,15 @@
       (erc-matterircd-format-italics)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat (propertize "*italic asterisk*" 'display
-                                   (propertize "italic asterisk" 'face erc-matterircd-italic-face))
+               (concat (propertize "*italic asterisk*"
+                                   'display
+                                   (propertize "italic asterisk" 'face erc-matterircd-italic-face)
+                                   'rear-nonsticky t)
                        " "
-                       (propertize "_italic underscore_" 'display
-                                   (propertize "italic underscore" 'face erc-matterircd-italic-face)))))))
+                       (propertize "_italic underscore_"
+                                   'display
+                                   (propertize "italic underscore" 'face erc-matterircd-italic-face)
+                                   'rear-nonsticky t))))))
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
                (lambda () 'matterircd)))
@@ -58,10 +66,14 @@
       (erc-matterircd-format-bolds)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "**bold asterisk**" 'display
-                                       (propertize "bold asterisk" 'face 'erc-bold-face))
-                       " " (propertize "__bold underscore__" 'display
-                                       (propertize "bold underscore" 'face 'erc-bold-face))
+               (concat " " (propertize "**bold asterisk**"
+                                       'display
+                                       (propertize "bold asterisk" 'face 'erc-bold-face)
+                                       'rear-nonsticky t)
+                       " " (propertize "__bold underscore__"
+                                       'display
+                                       (propertize "bold underscore" 'face 'erc-bold-face)
+                                       'rear-nonsticky t)
                        " ")))))
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
@@ -70,11 +82,15 @@
       (erc-matterircd-format-bolds)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat (propertize "**bold asterisk**" 'display
-                                   (propertize "bold asterisk" 'face 'erc-bold-face))
+               (concat (propertize "**bold asterisk**"
+                                   'display
+                                   (propertize "bold asterisk" 'face 'erc-bold-face)
+                                   'rear-nonsticky t)
                        " "
-                       (propertize "__bold underscore__" 'display
-                                   (propertize "bold underscore" 'face 'erc-bold-face)))))))
+                       (propertize "__bold underscore__"
+                                   'display
+                                   (propertize "bold underscore" 'face 'erc-bold-face)
+                                   'rear-nonsticky t))))))
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
                (lambda () 'matterircd)))
@@ -101,8 +117,10 @@
       (erc-matterircd-format-strikethroughs)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "~~strikethrough~~" 'display
-                                       (propertize "strikethrough" 'face 'erc-matterircd-strikethrough-face))
+               (concat " " (propertize "~~strikethrough~~"
+                                       'display
+                                       (propertize "strikethrough" 'face 'erc-matterircd-strikethrough-face)
+                                       'rear-nonsticky t)
                        " "))))))
 
 (ert-deftest erc-matterircd-test-monospace ()
@@ -114,8 +132,10 @@
       (erc-matterircd-format-monospace)
       (should (ert-equal-including-properties
                (buffer-substring (point-min) (point-max))
-               (concat " " (propertize "`monospace`" 'display
-                                       (propertize "monospace" 'face 'erc-matterircd-monospace-face)) " ")))))
+               (concat " " (propertize "`monospace`"
+                                       'display
+                                       (propertize "monospace" 'face 'erc-matterircd-monospace-face)
+                                       'rear-nonsticky t) " ")))))
   (with-temp-buffer
     (cl-letf (((symbol-function 'erc-network)
                (lambda () 'matterircd)))
@@ -145,7 +165,8 @@
                (concat " " (propertize "[text](url)"
                                        'display "text"
                                        'erc-matterircd-link-url "url"
-                                       'help-echo "url")
+                                       'help-echo "url"
+                                       'rear-nonsticky t)
                        " ")))
       (erc-matterircd-buttonize-from-text-properties)
       (should (ert-equal-including-properties

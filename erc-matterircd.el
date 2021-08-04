@@ -127,7 +127,8 @@ open url via `browse-url-buttton-open-url'."
         (set-text-properties start end
                              (list 'erc-matterircd-link-url url
                                    'help-echo url
-                                   'display name))))))
+                                   'display name
+                                   'rear-nonsticky t))))))
 
 (defun erc-matterircd-reply-to-context-id (context-id)
   "Go to erc prompt and start a reply to the post with CONTEXT-ID."
@@ -200,13 +201,17 @@ italic face instead."
     ;; whereas asterisks can be anywhere
     (while (or (re-search-forward "\\(\\*\\([^\\*]+?\\)\\*\\)" nil t)
                (re-search-forward "\\_<\\(_\\([^_]+?\\)_\\)\\_>" nil t))
-      (let ((message (match-string 2)))
+      (let ((message (match-string 2))
+            (start (match-beginning 0))
+            (end (match-end 0)))
         ;; erc-italic-face is only in very recent emacs 28 so use italic
         ;; for now
-        (put-text-property (match-beginning 0) (match-end 0)
+        (put-text-property start end
                            'display
-                           (propertize message 'face
-                                       erc-matterircd-italic-face))))))
+                           (propertize message
+                                       'face erc-matterircd-italic-face))
+        (put-text-property start end
+                           'rear-nonsticky t)))))
 
 (defun erc-matterircd-format-bolds ()
   "Format **bold** / or __bolds__ correctly.
@@ -218,10 +223,15 @@ bold face instead."
     (goto-char (point-min))
     (while (or (re-search-forward "\\(\\*\\*\\([^\\*]+?\\)\\*\\*\\)" nil t)
                (re-search-forward "\\_<\\(__\\([^_]+?\\)__\\)\\_>" nil t))
-      (let ((message (match-string 2)))
-        (put-text-property (match-beginning 0) (match-end 0)
+      (let ((message (match-string 2))
+             (start (match-beginning 0))
+             (end (match-end 0)))
+        (put-text-property start end
                            'display
-                           (propertize message 'face 'erc-bold-face))))))
+                           (propertize message
+                                       'face 'erc-bold-face))
+        (put-text-property start end
+                           'rear-nonsticky t)))))
 
 (defface erc-matterircd-strikethrough-face
   '((t (:strike-through t)))
@@ -236,10 +246,15 @@ strikethrough face attribute instead."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
     (while (re-search-forward "~~\\(.*?\\)~~" nil t)
-      (let ((message (match-string 1)))
-        (put-text-property (match-beginning 0) (match-end 0)
+      (let ((message (match-string 1))
+            (start (match-beginning 0))
+            (end (match-end 0)))
+        (put-text-property start end
                            'display
-                           (propertize message 'face 'erc-matterircd-strikethrough-face))))))
+                           (propertize message
+                                       'face 'erc-matterircd-strikethrough-face))
+        (put-text-property start end
+                           'rear-nonsticky t)))))
 
 (defface erc-matterircd-monospace-face
   '((t (:inherit fixed-pitch-serif)))
@@ -251,10 +266,15 @@ monospace text is sent as `monospace`."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
     (while (re-search-forward "`\\([^`]+?\\)`" nil t)
-      (let ((message (match-string 1)))
-        (put-text-property (match-beginning 0) (match-end 0)
+      (let ((message (match-string 1))
+            (start (match-beginning 0))
+            (end (match-end 0)))
+        (put-text-property start end
                            'display
-                           (propertize message 'face 'erc-matterircd-monospace-face))))))
+                           (propertize message
+                                       'face 'erc-matterircd-monospace-face))
+        (put-text-property start end
+                           'rear-nonsticky t)))))
 
 (defun erc-matterircd-format-reactions ()
   "Format reactions sent via matterircd."
