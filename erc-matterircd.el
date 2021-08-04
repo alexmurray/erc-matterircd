@@ -285,7 +285,7 @@ monospace text is sent as `monospace`."
         (replace-match (concat ":" name ":") nil nil nil 1)))))
 
 (defvar erc-matterircd-context-regexp
-  "\\[\\([0-9a-f]\\{3\\}\\)\\(->\\([0-9a-f]\\{3\\}\\)\\)?\\]")
+  "\\[\\(\\(\\([0-9a-f]\\{3\\}\\)\\(->\\([0-9a-f]\\{3\\}\\)\\)?\\)\\|\\(\\(↪\\|->\\)?@@\\([a-z0-9]+\\)\\)\\)\\]")
 
 (defun erc-matterircd-format-contexts ()
   "Format [xxx] contexts as text properties.
@@ -300,8 +300,9 @@ to, edit or delete a post."
               (re-search-forward (concat " \\(" erc-matterircd-context-regexp "\\)\\s-*$") nil t))
       ;; delete and propertize message with the context id
       (let ((full-id (match-string-no-properties 1))
-            (context-id (or (match-string-no-properties 4)
-                            (match-string-no-properties 2)))
+            (context-id (or (match-string-no-properties 9)
+                            (match-string-no-properties 5)
+                            (match-string-no-properties 3)))
             (start (match-beginning 1))
             (end (match-end 1))
             (source (buffer-substring-no-properties
