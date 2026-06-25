@@ -224,8 +224,8 @@ bold face instead."
     (while (or (re-search-forward "\\(\\*\\*\\([^\\*]+?\\)\\*\\*\\)" nil t)
                (re-search-forward "\\_<\\(__\\([^_]+?\\)__\\)\\_>" nil t))
       (let ((message (match-string 2))
-             (start (match-beginning 0))
-             (end (match-end 0)))
+            (start (match-beginning 0))
+            (end (match-end 0)))
         (put-text-property start end
                            'display
                            (propertize message
@@ -377,21 +377,21 @@ to, edit or delete a post."
   "Get the list of context IDs and locations for BUFFER in MRU order.
 
 Defaults to the current buffer if none specified."
-    (with-current-buffer (or buffer (current-buffer))
-      (save-excursion
-        (goto-char (point-min))
-        (let ((context-ids nil)
-              (match nil))
-          (while (setq match (text-property-search-forward 'erc-matterircd-context-id))
-            (let ((id (prop-match-value match)))
-              (unless (alist-get id context-ids nil nil #'equal)
-                (push (cons (prop-match-value match)
-                            (cons (current-buffer)
-                                  ;; after searching point is just past the
-                                  ;; location
-                                  (1- (point))))
-                      context-ids))))
-          context-ids))))
+  (with-current-buffer (or buffer (current-buffer))
+    (save-excursion
+      (goto-char (point-min))
+      (let ((context-ids nil)
+            (match nil))
+        (while (setq match (text-property-search-forward 'erc-matterircd-context-id))
+          (let ((id (prop-match-value match)))
+            (unless (alist-get id context-ids nil nil #'equal)
+              (push (cons (prop-match-value match)
+                          (cons (current-buffer)
+                                ;; after searching point is just past the
+                                ;; location
+                                (1- (point))))
+                    context-ids))))
+        context-ids))))
 
 (defun erc-matterircd--get-docsig-for-context-id (id context-ids)
   "Get the docsig for ID from the list of CONTEXT-IDS."
@@ -406,28 +406,28 @@ Defaults to the current buffer if none specified."
   "Complete context-ids for replies."
   (when (and (eq 'matterircd (erc-network))
              (not (null (string-match-p "^@@[0-9]\\{0,3\\}$" (erc-user-input)))))
-        ;; find the list of context-ids in the current buffer
-        (let* ((context-ids (erc-matterircd--context-ids))
-               (candidates
-                (mapcar (lambda (id) (cons (concat "@@" (car id)) (cdr id))) context-ids))
-              (bounds (bounds-of-thing-at-point 'word)))
-          (list (car bounds) (cdr bounds)
-                candidates
-                :exclusive 'no
-                :annotation-function (lambda (id)
-                                       (let ((docsig
-                                              (erc-matterircd--get-docsig-for-context-id
-                                               id candidates)))
-                                         (truncate-string-to-width docsig 40)))
-                :company-docsig (lambda (id)
-                                  (erc-matterircd--get-docsig-for-context-id
-                                   id candidates))
-                :company-doc-buffer (lambda (id)
-                                      (company-doc-buffer
-                                       (erc-matterircd--get-docsig-for-context-id
-                                        id candidates)))
-                :company-location (lambda (id)
-                                    (cdr (alist-get id context-ids nil nil #'equal)))))))
+    ;; find the list of context-ids in the current buffer
+    (let* ((context-ids (erc-matterircd--context-ids))
+           (candidates
+            (mapcar (lambda (id) (cons (concat "@@" (car id)) (cdr id))) context-ids))
+           (bounds (bounds-of-thing-at-point 'word)))
+      (list (car bounds) (cdr bounds)
+            candidates
+            :exclusive 'no
+            :annotation-function (lambda (id)
+                                   (let ((docsig
+                                          (erc-matterircd--get-docsig-for-context-id
+                                           id candidates)))
+                                     (truncate-string-to-width docsig 40)))
+            :company-docsig (lambda (id)
+                              (erc-matterircd--get-docsig-for-context-id
+                               id candidates))
+            :company-doc-buffer (lambda (id)
+                                  (company-doc-buffer
+                                   (erc-matterircd--get-docsig-for-context-id
+                                    id candidates)))
+            :company-location (lambda (id)
+                                (cdr (alist-get id context-ids nil nil #'equal)))))))
 
 (defun erc-matterircd-scrollback (&optional num-lines)
   "Request scrollback for the current channel of NUM-LINES.
@@ -445,10 +445,10 @@ Defaults to 10 lines if none specified."
 
 (defun erc-matterircd--pending-requests-timeout ()
   "Timer function called when the pending requests timer expires."
-   (let ((channel (caar erc-matterircd--pending-requests)))
-     (when channel
-       (with-current-buffer (erc-get-buffer channel)
-         (erc-matterircd-updatelastviewed channel t)))))
+  (let ((channel (caar erc-matterircd--pending-requests)))
+    (when channel
+      (with-current-buffer (erc-get-buffer channel)
+        (erc-matterircd-updatelastviewed channel t)))))
 
 ;; matterircd seems to concatenate multiple privmsg commands if we send
 ;; them too quickly in succession, so instead we want to only send one
@@ -460,36 +460,36 @@ Queue up pending requests so we don't overload matterircd, but
 will always resend if FORCE."
   (setq channel (or channel (erc-default-target)))
   (if (eq 'matterircd (erc-network))
-        ;; the mattermost user is fake plus we can't seem to
-        ;; updatelastviewed for the channel with ourself so skip both of
-        ;; these
-        (when (not (or (string= channel "mattermost")
-                       (string= channel (erc-current-nick))))
-          ;; if in the list delete it and add again at the end with the
-          ;; current time
-         (setq erc-matterircd--pending-requests
-               (cl-remove channel erc-matterircd--pending-requests
-                          :test #'string= :key #'car))
-         (add-to-list 'erc-matterircd--pending-requests
-                      (cons channel (time-convert nil 'integer))
-                      ;; when forced push to the front of the list
-                      (not force))
-         (when (or force (= (length erc-matterircd--pending-requests) 1))
-	    ;; force sending so as to avoid flood control as we will resend it
-            ;; ourselves later if required so we don't want to queue up a
-            ;; heap of requests
-            (erc-message "PRIVMSG"
-                         (format "mattermost updatelastviewed %s" channel)
-                         t)
-            ;; cancel any existing timer so we reset it below
-            (when (timerp erc-matterircd--pending-requests-timer)
-              (cancel-timer erc-matterircd--pending-requests-timer)
-              (setq erc-matterircd--pending-requests-timer nil)))
-          ;; ensure timer is running
-          (unless (timerp erc-matterircd--pending-requests-timer)
-            (setq erc-matterircd--pending-requests-timer
-                  (run-with-timer 5 5
-                                  #'erc-matterircd--pending-requests-timeout))))
+      ;; the mattermost user is fake plus we can't seem to
+      ;; updatelastviewed for the channel with ourself so skip both of
+      ;; these
+      (when (not (or (string= channel "mattermost")
+                     (string= channel (erc-current-nick))))
+        ;; if in the list delete it and add again at the end with the
+        ;; current time
+        (setq erc-matterircd--pending-requests
+              (cl-remove channel erc-matterircd--pending-requests
+                         :test #'string= :key #'car))
+        (add-to-list 'erc-matterircd--pending-requests
+                     (cons channel (time-convert nil 'integer))
+                     ;; when forced push to the front of the list
+                     (not force))
+        (when (or force (= (length erc-matterircd--pending-requests) 1))
+	  ;; force sending so as to avoid flood control as we will resend it
+          ;; ourselves later if required so we don't want to queue up a
+          ;; heap of requests
+          (erc-message "PRIVMSG"
+                       (format "mattermost updatelastviewed %s" channel)
+                       t)
+          ;; cancel any existing timer so we reset it below
+          (when (timerp erc-matterircd--pending-requests-timer)
+            (cancel-timer erc-matterircd--pending-requests-timer)
+            (setq erc-matterircd--pending-requests-timer nil)))
+        ;; ensure timer is running
+        (unless (timerp erc-matterircd--pending-requests-timer)
+          (setq erc-matterircd--pending-requests-timer
+                (run-with-timer 5 5
+                                #'erc-matterircd--pending-requests-timeout))))
     (erc-display-message nil 'error channel 'not-matterircd)))
 
 ;; ERC dispatches /UPDATELASTVIEWED by calling erc-cmd-UPDATELASTVIEWED
