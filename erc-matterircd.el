@@ -332,7 +332,7 @@ to, edit or delete a post."
         (handled nil))
     (when (string= sender "mattermost")
       (pcase contents
-        ((rx bos "set viewed for " (let channel (group (one-or-more any))) eos)
+        ((rx bos "set viewed for " (let channel (group (one-or-more nonl))) eos)
          ;; channel name doesn't contain # prefix but it does in our
          ;; list of pending responses
          (setq channel (concat "#" channel))
@@ -440,7 +440,8 @@ Defaults to 10 lines if none specified."
         (erc-message "PRIVMSG" (format "mattermost scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
-(defalias 'erc-cmd-SCROLLBACK #'erc-matterircd-scrollback)
+;; ERC dispatches /SCROLLBACK by calling erc-cmd-SCROLLBACK
+(fset 'erc-cmd-SCROLLBACK #'erc-matterircd-scrollback)
 
 (defun erc-matterircd--pending-requests-timeout ()
   "Timer function called when the pending requests timer expires."
@@ -491,7 +492,8 @@ will always resend if FORCE."
                                   #'erc-matterircd--pending-requests-timeout))))
     (erc-display-message nil 'error channel 'not-matterircd)))
 
-(defalias 'erc-cmd-UPDATELASTVIEWED #'erc-matterircd-updatelastviewed)
+;; ERC dispatches /UPDATELASTVIEWED by calling erc-cmd-UPDATELASTVIEWED
+(fset 'erc-cmd-UPDATELASTVIEWED #'erc-matterircd-updatelastviewed)
 
 (defvar erc-matterircd--last-buffer nil
   "The last matterircd buffer which was viewed.")
@@ -529,8 +531,9 @@ will always resend if FORCE."
 (defvar erc-matterircd--run-last-hook-functions
   `(,#'erc-matterircd-buttonize-from-text-properties))
 
-(defvar erc-message-english-not-matterircd
-  "This command is specific to matterircd only.")
+;; ERC's catalog system looks up erc-message-CATALOG-ENTRY by name
+(set 'erc-message-english-not-matterircd
+     "This command is specific to matterircd only.")
 
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd."
