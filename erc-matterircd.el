@@ -354,7 +354,7 @@ to, edit or delete a post."
          (when (> (length erc-matterircd--pending-requests) 0)
            (let ((channel (caar erc-matterircd--pending-requests)))
              (with-current-buffer (erc-get-buffer channel)
-               (erc-cmd-UPDATELASTVIEWED channel t))))
+               (erc-matterircd-cmd-UPDATELASTVIEWED channel t))))
          ;; respects users wish to suppress responses
          (setq handled erc-matterircd-suppress-mattermost-responses))
         ((rx bos "login OK" eos)
@@ -429,7 +429,7 @@ Defaults to the current buffer if none specified."
                 :company-location (lambda (id)
                                     (cdr (alist-get id context-ids nil nil #'equal)))))))
 
-(defun erc-cmd-SCROLLBACK (&optional num-lines)
+(defun erc-matterircd-cmd-SCROLLBACK (&optional num-lines)
   "Request scrollback for the current channel of NUM-LINES.
 
 Defaults to 10 lines if none specified."
@@ -440,17 +440,19 @@ Defaults to 10 lines if none specified."
         (erc-message "PRIVMSG" (format "mattermost scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
+(defalias 'erc-cmd-SCROLLBACK #'erc-matterircd-cmd-SCROLLBACK)
+
 (defun erc-matterircd--pending-requests-timeout ()
   "Timer function called when the pending requests timer expires."
    (let ((channel (caar erc-matterircd--pending-requests)))
      (when channel
        (with-current-buffer (erc-get-buffer channel)
-         (erc-cmd-UPDATELASTVIEWED channel t)))))
+         (erc-matterircd-cmd-UPDATELASTVIEWED channel t)))))
 
 ;; matterircd seems to concatenate multiple privmsg commands if we send
 ;; them too quickly in succession, so instead we want to only send one
 ;; in-flight and queue up the others to be processed later
-(defun erc-cmd-UPDATELASTVIEWED (&optional channel force)
+(defun erc-matterircd-cmd-UPDATELASTVIEWED (&optional channel force)
   "Send updatelastviewed for CHANNEL (or current channel if not specified).
 
 Queue up pending requests so we don't overload matterircd, but
@@ -489,6 +491,8 @@ will always resend if FORCE."
                                   #'erc-matterircd--pending-requests-timeout))))
     (erc-display-message nil 'error channel 'not-matterircd)))
 
+(defalias 'erc-cmd-UPDATELASTVIEWED #'erc-matterircd-cmd-UPDATELASTVIEWED)
+
 (defvar erc-matterircd--last-buffer nil
   "The last matterircd buffer which was viewed.")
 
@@ -501,7 +505,7 @@ will always resend if FORCE."
                (or (null (boundp 'erc-track-mode))
                    (and erc-track-mode
                         (alist-get (current-buffer) erc-modified-channels-alist))))
-      (erc-cmd-UPDATELASTVIEWED))))
+      (erc-matterircd-cmd-UPDATELASTVIEWED))))
 
 (defun erc-matterircd--get-next-context-id (context-ids)
   "Get the next context ID which would be allocated from CONTEXT-IDS."
@@ -525,11 +529,12 @@ will always resend if FORCE."
 (defvar erc-matterircd--run-last-hook-functions
   `(,#'erc-matterircd-buttonize-from-text-properties))
 
+(defvar erc-message-english-not-matterircd
+  "This command is specific to matterircd only.")
+
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd"
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
-   (erc-define-catalog-entry 'english 'not-matterircd
-                             "This command is specific to matterircd only.")
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-to-list 'erc-complete-functions #'erc-matterircd-complete-context-ids)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)
