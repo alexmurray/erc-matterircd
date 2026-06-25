@@ -532,8 +532,9 @@ will always resend if FORCE."
   `(,#'erc-matterircd-buttonize-from-text-properties))
 
 ;; ERC's catalog system looks up erc-message-CATALOG-ENTRY by name
-(set 'erc-message-english-not-matterircd
-     "This command is specific to matterircd only.")
+(with-suppressed-warnings ((free-vars erc-message-english-not-matterircd))
+  (set 'erc-message-english-not-matterircd
+       "This command is specific to matterircd only."))
 
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd."
