@@ -17,21 +17,16 @@ jobs:
           - 29.4
           - 30.2
           - snapshot
-        # ignore_warnings:
-        #   - true
-        include:
-          - emacs_version: snapshot
-            ignore_warnings: false
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: purcell/setup-emacs@master
       with:
         version: ${{ matrix.emacs_version }}
-    - uses: leotaku/elisp-check@master
+    - uses: leotaku/elisp-check@b8228894697c3cf9989a0e63977de4a239160628
       with:
         check: melpa
         file: erc-matterircd.el
-    - uses: leotaku/elisp-check@master
+    - uses: leotaku/elisp-check@b8228894697c3cf9989a0e63977de4a239160628
       with:
         check: ert
         file: test/erc-matterircd-test.el

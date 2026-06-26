@@ -435,8 +435,9 @@ Defaults to the current buffer if none specified."
 Defaults to 10 lines if none specified."
   (if (eq 'matterircd (erc-network))
       (let ((target (erc-default-target))
-            (lines (or (and num-lines (string-to-number num-lines))
-                       10)))
+            (lines (if (and num-lines (> (string-to-number num-lines) 0))
+                       (string-to-number num-lines)
+                     10)))
         (erc-message "PRIVMSG" (format "mattermost scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
@@ -531,14 +532,13 @@ will always resend if FORCE."
 (defvar erc-matterircd--run-last-hook-functions
   `(,#'erc-matterircd-buttonize-from-text-properties))
 
-;; ERC's catalog system looks up erc-message-CATALOG-ENTRY by name
-(with-suppressed-warnings ((free-vars erc-message-english-not-matterircd))
-  (set 'erc-message-english-not-matterircd
-       "This command is specific to matterircd only."))
-
 (define-erc-module matterircd nil
   "Integrate ERC with matterircd."
   ((add-to-list 'erc-networks-alist '(matterircd "matterircd.*"))
+   ;; ERC's catalog system looks up erc-message-CATALOG-ENTRY by name
+   (with-suppressed-warnings ((free-vars erc-message-english-not-matterircd))
+     (set 'erc-message-english-not-matterircd
+          "This command is specific to matterircd only."))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-to-list 'erc-complete-functions #'erc-matterircd-complete-context-ids)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)

@@ -217,6 +217,163 @@
                    (buffer-substring (point-min) (point-max))
                    (concat " foo " suffix))))))))
 
+(ert-deftest erc-matterircd-test-cleanup-gifs ()
+  "Test that GIF lines are reduced to just the URL."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "![GIF for 'foo'](http://example.com/foo.gif)")
+      (erc-matterircd-cleanup-gifs)
+      (should (equal (buffer-string) "http://example.com/foo.gif"))))
+  ;; non-matterircd is a no-op
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'other)))
+      (insert "![GIF for 'foo'](http://example.com/foo.gif)")
+      (erc-matterircd-cleanup-gifs)
+      (should (equal (buffer-string) "![GIF for 'foo'](http://example.com/foo.gif)")))))
+
+(ert-deftest erc-matterircd-test-reactions ()
+  "Test that reaction names are wrapped in colons."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "added reaction: thumbsup")
+      (erc-matterircd-format-reactions)
+      (should (equal (buffer-string) "added reaction: :thumbsup:"))))
+  ;; multiple reactions on separate lines
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'matterircd)))
+      (insert "added reaction: +1\nadded reaction: heart")
+      (erc-matterircd-format-reactions)
+      (should (equal (buffer-string) "added reaction: :+1:\nadded reaction: :heart:"))))
+  ;; non-matterircd is a no-op
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network)
+               (lambda () 'other)))
+      (insert "added reaction: thumbsup")
+      (erc-matterircd-format-reactions)
+      (should (equal (buffer-string) "added reaction: thumbsup")))))
+
+(ert-deftest erc-matterircd-test-scrollback ()
+  "Test that /SCROLLBACK sends the correct PRIVMSG."
+  (let (sent-type sent-msg)
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd))
+              ((symbol-function 'erc-default-target) (lambda () "#channel"))
+              ((symbol-function 'erc-message)
+               (lambda (type msg &rest _) (setq sent-type type sent-msg msg))))
+      ;; defaults to 10 lines when no argument given
+      (erc-matterircd-scrollback nil)
+      (should (equal sent-type "PRIVMSG"))
+      (should (equal sent-msg "mattermost scrollback #channel 10"))
+      ;; ERC passes command arguments as strings, not integers
+      (erc-matterircd-scrollback "5")
+      (should (equal sent-msg "mattermost scrollback #channel 5"))
+      ;; zero and non-numeric strings fall back to the default 10 lines
+      (erc-matterircd-scrollback "0")
+      (should (equal sent-msg "mattermost scrollback #channel 10"))
+      (erc-matterircd-scrollback "abc")
+      (should (equal sent-msg "mattermost scrollback #channel 10"))))
+  ;; non-matterircd shows an error
+  (let (display-args)
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'other))
+              ((symbol-function 'erc-display-message)
+               (lambda (&rest args) (setq display-args args))))
+      (with-temp-buffer
+        (erc-matterircd-scrollback nil)
+        (should (equal display-args `(nil error ,(current-buffer) not-matterircd)))))))
+
+(ert-deftest erc-matterircd-test-PRIVMSG ()
+  "Test that PRIVMSG from the mattermost user is intercepted correctly."
+  ;; non-mattermost sender is not handled
+  (should (null (erc-matterircd-PRIVMSG
+                 nil (make-erc-response :sender "other!other@localhost"
+                                        :contents "login OK"))))
+  ;; "login OK" respects the suppress setting
+  (let ((erc-matterircd-suppress-mattermost-responses t))
+    (should (eq t (erc-matterircd-PRIVMSG
+                   nil (make-erc-response :sender "mattermost!mattermost@localhost"
+                                          :contents "login OK")))))
+  (let ((erc-matterircd-suppress-mattermost-responses nil))
+    (should (null (erc-matterircd-PRIVMSG
+                   nil (make-erc-response :sender "mattermost!mattermost@localhost"
+                                          :contents "login OK")))))
+  ;; unrecognised content from mattermost is not handled
+  (should (null (erc-matterircd-PRIVMSG
+                 nil (make-erc-response :sender "mattermost!mattermost@localhost"
+                                        :contents "some unknown message"))))
+  ;; "set viewed for channel" removes that channel from pending requests
+  ;; and returns the suppress value
+  (let ((erc-matterircd-suppress-mattermost-responses t)
+        (erc-matterircd--pending-requests (list (cons "#test" 0)))
+        (erc-matterircd--pending-requests-timer nil))
+    (should (eq t (erc-matterircd-PRIVMSG
+                   nil (make-erc-response :sender "mattermost!mattermost@localhost"
+                                          :contents "set viewed for test"))))
+    (should (null erc-matterircd--pending-requests)))
+  ;; "set viewed for channel" cancels a running timer
+  (let* ((timer (run-with-timer 100 nil #'ignore))
+         (erc-matterircd--pending-requests (list (cons "#test" 0)))
+         (erc-matterircd--pending-requests-timer timer))
+    (unwind-protect
+        (progn
+          (erc-matterircd-PRIVMSG nil (make-erc-response
+                                       :sender "mattermost!mattermost@localhost"
+                                       :contents "set viewed for test"))
+          (should (null erc-matterircd--pending-requests-timer)))
+      (when (timerp timer) (cancel-timer timer))))
+  ;; "set viewed for channel" with more pending triggers updatelastviewed for next
+  (let ((next-channel nil)
+        (erc-matterircd--pending-requests (list (cons "#test" 0) (cons "#next" 1)))
+        (erc-matterircd--pending-requests-timer nil))
+    (cl-letf (((symbol-function 'erc-get-buffer) (lambda (_) (current-buffer)))
+              ((symbol-function 'erc-matterircd-updatelastviewed)
+               (lambda (ch _force) (setq next-channel ch))))
+      (erc-matterircd-PRIVMSG nil (make-erc-response
+                                   :sender "mattermost!mattermost@localhost"
+                                   :contents "set viewed for test"))
+      (should (equal next-channel "#next"))
+      (should (equal erc-matterircd--pending-requests (list (cons "#next" 1)))))))
+
+(ert-deftest erc-matterircd-test-context-ids-scan ()
+  "Test that context IDs are correctly scanned from buffer text properties."
+  ;; no properties returns nil
+  (with-temp-buffer
+    (insert "no context ids here")
+    (should (null (erc-matterircd--context-ids))))
+  ;; single ID is found with correct value
+  (with-temp-buffer
+    ;;  " foo [001] "
+    ;;   1234567890
+    (insert " foo [001] ")
+    (put-text-property 6 11 'erc-matterircd-context-id "001")
+    (let ((ids (erc-matterircd--context-ids)))
+      (should (= 1 (length ids)))
+      (should (equal "001" (caar ids)))))
+  ;; multiple IDs: last one scanned is at the head (push order)
+  (with-temp-buffer
+    ;;  " [001] [002] "
+    ;;   1234567890123
+    (insert " [001] [002] ")
+    (put-text-property 2 7 'erc-matterircd-context-id "001")
+    (put-text-property 8 13 'erc-matterircd-context-id "002")
+    (let ((ids (erc-matterircd--context-ids)))
+      (should (= 2 (length ids)))
+      (should (equal "002" (caar ids)))
+      (should (equal "001" (caar (cdr ids))))))
+  ;; duplicate IDs are deduplicated; first occurrence position is kept
+  (with-temp-buffer
+    ;;  " [001] text [001] "
+    ;;   123456789012345678
+    (insert " [001] text [001] ")
+    (put-text-property 2 7 'erc-matterircd-context-id "001")
+    (put-text-property 13 18 'erc-matterircd-context-id "001")
+    (let ((ids (erc-matterircd--context-ids)))
+      (should (= 1 (length ids)))
+      ;; position 6 = one before point after scanning first [001] (positions 2-6)
+      (should (= 6 (cdr (cdar ids)))))))
+
 (provide 'erc-matterircd-test)
 ;;; erc-matterircd-test.el ends here
 
