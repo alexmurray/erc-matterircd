@@ -19,7 +19,7 @@ jobs:
           - snapshot
     steps:
     - uses: actions/checkout@v4
-    - uses: purcell/setup-emacs@master
+    - uses: purcell/setup-emacs@bdc64dc730ae1fcba200bfd52cb1b4cf6159cbe5
       with:
         version: ${{ matrix.emacs_version }}
     - uses: leotaku/elisp-check@b8228894697c3cf9989a0e63977de4a239160628

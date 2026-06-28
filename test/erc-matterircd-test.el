@@ -274,7 +274,10 @@
       (erc-matterircd-scrollback "0")
       (should (equal sent-msg "mattermost scrollback #channel 10"))
       (erc-matterircd-scrollback "abc")
-      (should (equal sent-msg "mattermost scrollback #channel 10"))))
+      (should (equal sent-msg "mattermost scrollback #channel 10"))
+      ;; float strings are truncated to an integer (not passed raw to %d)
+      (erc-matterircd-scrollback "5.2")
+      (should (equal sent-msg "mattermost scrollback #channel 5"))))
   ;; non-matterircd shows an error
   (let (display-args)
     (cl-letf (((symbol-function 'erc-network) (lambda () 'other))

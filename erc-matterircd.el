@@ -435,9 +435,9 @@ Defaults to the current buffer if none specified."
 Defaults to 10 lines if none specified."
   (if (eq 'matterircd (erc-network))
       (let ((target (erc-default-target))
-            (lines (if (and num-lines (> (string-to-number num-lines) 0))
-                       (string-to-number num-lines)
-                     10)))
+            ;; truncate coerces floats (e.g. "5.2") to int; %d rejects floats
+            (lines (let ((n (if num-lines (truncate (string-to-number num-lines)) 0)))
+                     (if (> n 0) n 10))))
         (erc-message "PRIVMSG" (format "mattermost scrollback %s %d" target lines)))
     (erc-display-message nil 'error (current-buffer) 'not-matterircd)))
 
