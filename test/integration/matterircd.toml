@@ -1,0 +1,18 @@
+[mattermost]
+DefaultServer = "http://localhost:8065"
+DefaultTeam = "testteam"
+# HTTP-only Mattermost instance used in tests
+Insecure = true
+# Prefix every post with a [hex] context ID (non-default, but the more demanding
+# case for erc-matterircd: formatters must tolerate the ID between the nick and
+# the message body).  PrefixContext = false is the matterircd default and is
+# covered by unit tests.
+PrefixContext = true
+# Pass Mattermost markdown through as raw text so erc-matterircd can render it
+# on the receive path (bold, italic, code blocks, block quotes).  This is the
+# only mode where receive-path formatting can be integration-tested end-to-end.
+# With the matterircd default (DisableMarkdown = false) matterircd converts
+# markdown to IRC control codes; ERC renders those natively without any
+# erc-matterircd involvement, so no integration testing of formatters is needed
+# for that mode beyond basic message delivery (T5).
+DisableMarkdown = true

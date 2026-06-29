@@ -1,0 +1,16 @@
+services:
+  mattermost:
+    image: mattermost/mattermost-preview:latest
+    ports:
+      - "8065:8065"
+    environment:
+      MM_SERVICESETTINGS_SITEURL: http://localhost:8065
+      # Disable email so provisioning doesn't need a mail server
+      MM_EMAILSETTINGS_REQUIREEMAILVERIFICATION: "false"
+      MM_EMAILSETTINGS_ENABLESMTP: "false"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8065/api/v4/system/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s

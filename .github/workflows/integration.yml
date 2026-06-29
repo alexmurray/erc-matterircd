@@ -1,0 +1,49 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      MM_URL: http://localhost:8065
+      MM_ADMIN_USER: testadmin
+      MM_ADMIN_PASS: TestAdmin1!
+      MM_ADMIN_EMAIL: admin@test.local
+      MM_TEAM_NAME: testteam
+      MM_TEST_USER: testuser
+      MM_TEST_PASS: TestUser1!
+      MM_TEST_EMAIL: testuser@test.local
+      MM_NICK: testuser
+      MM_PASSWORD: TestUser1!
+      MM_CHANNEL: "#testchannel"
+      MM_CHANNEL_NAME: testchannel
+      MATTERIRCD_VERSION: "0.30.0"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: purcell/setup-emacs@bdc64dc730ae1fcba200bfd52cb1b4cf6159cbe5
+        with:
+          version: 30.2
+
+      - name: Install dependencies
+        run: sudo apt-get install -y netcat-openbsd curl
+
+      - name: Run integration tests
+        run: bash test/integration/run.sh
+        env:
+          KEEP_SERVICES: "0"
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-logs
+          path: test/integration/.logs/
+          retention-days: 7
