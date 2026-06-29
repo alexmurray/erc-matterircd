@@ -284,6 +284,23 @@ monospace text is sent as `monospace`."
       (let ((name (match-string-no-properties 1)))
         (replace-match (concat ":" name ":") nil nil nil 1)))))
 
+(defface erc-matterircd-edit-indicator-face
+  '((t (:inherit shadow)))
+  "Face for (edited) and (deleted) indicators in matterircd messages.")
+
+(defun erc-matterircd-format-edit-indicators ()
+  "Apply a dim face to (edited) and (deleted) markers."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward "(edited)\\|(deleted)" nil t)
+      (let ((start (match-beginning 0))
+            (end (match-end 0))
+            (text (match-string-no-properties 0)))
+        (put-text-property start end
+                           'display
+                           (propertize text 'face 'erc-matterircd-edit-indicator-face))
+        (put-text-property start end 'rear-nonsticky t)))))
+
 (defvar erc-matterircd-context-regexp
   "\\[\\(\\(\\([0-9a-f]\\{3\\}\\)\\(->\\([0-9a-f]\\{3\\}\\)\\)?\\)\\|\\(\\(↪\\|->\\)?@@\\([a-z0-9]+\\)\\)\\)\\]")
 
@@ -543,6 +560,7 @@ will always resend if FORCE."
     ,#'erc-matterircd-format-monospace
     ,#'erc-matterircd-format-links
     ,#'erc-matterircd-format-reactions
+    ,#'erc-matterircd-format-edit-indicators
     ,#'erc-matterircd-format-contexts))
 
 ;; erc-button unbuttonizes text so we need to re-buttonize after everything

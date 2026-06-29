@@ -377,6 +377,28 @@
       ;; position 6 = one before point after scanning first [001] (positions 2-6)
       (should (= 6 (cdr (cdar ids)))))))
 
+(ert-deftest erc-matterircd-test-edit-indicators ()
+  "Test that (edited) and (deleted) markers are dimmed."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "hello world (edited)")
+      (erc-matterircd-format-edit-indicators)
+      (should (equal (get-text-property 14 'display)
+                     (propertize "(edited)" 'face 'erc-matterircd-edit-indicator-face)))
+      (should (get-text-property 14 'rear-nonsticky))))
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "hello world (deleted)")
+      (erc-matterircd-format-edit-indicators)
+      (should (equal (get-text-property 14 'display)
+                     (propertize "(deleted)" 'face 'erc-matterircd-edit-indicator-face)))))
+  ;; non-matterircd is a no-op
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'other)))
+      (insert "hello world (edited)")
+      (erc-matterircd-format-edit-indicators)
+      (should (null (get-text-property 14 'display))))))
+
 (ert-deftest erc-matterircd-test-search ()
   "Test that /SEARCH sends the correct PRIVMSG to mattermost."
   (let (sent-type sent-msg)
