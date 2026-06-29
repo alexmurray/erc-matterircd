@@ -276,6 +276,110 @@ monospace text is sent as `monospace`."
         (put-text-property start end
                            'rear-nonsticky t)))))
 
+(defcustom erc-matterircd-code-block-lang-modes
+  '(("bash"         . sh-mode)
+    ("shell"        . sh-mode)
+    ("zsh"          . sh-mode)
+    ("javascript"   . js-mode)
+    ("js"           . js-mode)
+    ("py"           . python-mode)
+    ("rb"           . ruby-mode)
+    ("cpp"          . c++-mode)
+    ("c++"          . c++-mode)
+    ("elisp"        . emacs-lisp-mode)
+    ("emacs-lisp"   . emacs-lisp-mode)
+    ("el"           . emacs-lisp-mode))
+  "Alist mapping fenced code block language names to major modes.
+Only entries that don't follow the simple LANG-mode naming pattern
+are required here.  For example, add (\"ts\" . typescript-mode) when
+`typescript-mode' is installed."
+  :group 'erc-matterircd
+  :type '(alist :key-type string :value-type symbol))
+
+(defun erc-matterircd--lang-to-mode (lang)
+  "Return the major mode symbol for fenced code block language LANG.
+Checks `erc-matterircd--lang-mode-alist' first, then tries LANG-mode.
+Returns nil when no suitable mode is installed."
+  (let ((from-alist (cdr (assoc lang erc-matterircd-code-block-lang-modes))))
+    (if (and from-alist (fboundp from-alist))
+        from-alist
+      (let ((sym (intern-soft (concat lang "-mode"))))
+        (when (fboundp sym) sym)))))
+
+(defun erc-matterircd--fontify-code (code lang)
+  "Return CODE as a propertized string with font-lock faces for LANG.
+Uses a persistent per-mode buffer (same approach as org-mode src blocks)
+to avoid re-initialising the mode on every message.  Adds
+`erc-matterircd-monospace-face' as a low-priority base so font-lock
+colours appear on top of a fixed-pitch font.  Falls back to plain
+`erc-matterircd-monospace-face' when no suitable mode is installed."
+  (let ((mode (erc-matterircd--lang-to-mode lang)))
+    (if mode
+        (condition-case nil
+            (let ((result
+                   (with-current-buffer
+                       (get-buffer-create
+                        (format " erc-matterircd-fontify:%s" (symbol-name mode)))
+                     (unless (eq major-mode mode)
+                       ;; Initialise once; delay hooks to avoid user side-effects
+                       (let ((inhibit-message t))
+                         (delay-mode-hooks (funcall mode))))
+                     (let ((inhibit-read-only t))
+                       (erase-buffer)
+                       (insert code))
+                     (let ((font-lock-verbose nil))
+                       (font-lock-ensure))
+                     (buffer-substring (point-min) (point-max)))))
+              ;; Append monospace as lowest-priority base; font-lock faces win
+              (add-face-text-property 0 (length result)
+                                      'erc-matterircd-monospace-face t result)
+              result)
+          ;; If anything goes wrong, fall back gracefully
+          (error (propertize code 'face 'erc-matterircd-monospace-face)))
+      (propertize code 'face 'erc-matterircd-monospace-face))))
+
+(defun erc-matterircd-format-code-blocks ()
+  "Format ```fenced code blocks``` with syntax highlighting.
+The language hint on the opening fence selects a major mode for
+fontification via `erc-matterircd--fontify-code'; unlisted or
+uninstalled languages fall back to plain `erc-matterircd-monospace-face'.
+Fence lines are hidden in the display.
+In ERC channel buffers every received line carries a nick prefix such as
+\"<nick> \"; `[^\n]*' before the closing ``` allows the regex to match
+across those prefixes, and they are stripped from the captured code body."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    ;; Group 1: optional language hint on the opening fence.
+    ;; Group 2: code body (whole lines, lazily).
+    ;; [^\n]* before the closing ``` absorbs any leading nick prefix so the
+    ;; pattern matches in a live ERC buffer as well as a plain temp buffer.
+    (while (re-search-forward
+            "```\\([^\n`]*\\)\n\\(\\(?:.*\n\\)*?\\)[^\n`]*```" nil t)
+      (let* ((start (match-beginning 0))
+             (end (match-end 0))
+             (lang (string-trim (match-string-no-properties 1)))
+             ;; Strip the ERC nick prefix ("<nick> ") from every code line.
+             ;; The first "> " on a line marks the end of "<nick>"; everything
+             ;; before it (inclusive) is dropped.  Lines without that pattern
+             ;; (e.g. on the send path) are left unchanged.
+             ;; NOTE: start/end are captured before these string operations
+             ;; because string-match inside the lambda clobbers match-data.
+             (code (mapconcat
+                    (lambda (line)
+                      (if (string-match "> " line)
+                          (substring line (match-end 0))
+                        line))
+                    (split-string
+                     (string-trim-right (match-string-no-properties 2) "\n")
+                     "\n")
+                    "\n")))
+        (put-text-property start end
+                           'display
+                           (if (string-empty-p lang)
+                               (propertize code 'face 'erc-matterircd-monospace-face)
+                             (erc-matterircd--fontify-code code lang)))
+        (put-text-property start end 'rear-nonsticky t)))))
+
 (defun erc-matterircd-format-reactions ()
   "Format reactions sent via matterircd."
   (when (eq 'matterircd (erc-network))
@@ -557,6 +661,7 @@ will always resend if FORCE."
 
 (defvar erc-matterircd--run-first-hook-functions
   `(,#'erc-matterircd-cleanup-gifs
+    ,#'erc-matterircd-format-code-blocks
     ,#'erc-matterircd-format-bolds
     ,#'erc-matterircd-format-italics
     ,#'erc-matterircd-format-strikethroughs

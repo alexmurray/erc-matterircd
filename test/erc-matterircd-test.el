@@ -377,6 +377,83 @@
       ;; position 6 = one before point after scanning first [001] (positions 2-6)
       (should (= 6 (cdr (cdar ids)))))))
 
+(ert-deftest erc-matterircd-test-lang-to-mode ()
+  "Test language-name to major-mode resolution."
+  ;; explicit alias mapping
+  (should (eq 'sh-mode           (erc-matterircd--lang-to-mode "bash")))
+  (should (eq 'sh-mode           (erc-matterircd--lang-to-mode "shell")))
+  (should (eq 'js-mode           (erc-matterircd--lang-to-mode "javascript")))
+  (should (eq 'emacs-lisp-mode   (erc-matterircd--lang-to-mode "elisp")))
+  (should (eq 'emacs-lisp-mode   (erc-matterircd--lang-to-mode "emacs-lisp")))
+  ;; alist entry with uninstalled mode falls back rather than returning unbound symbol
+  (let ((erc-matterircd-code-block-lang-modes '(("fakish" . nonexistent-mode-xyz))))
+    (should (null (erc-matterircd--lang-to-mode "fakish"))))
+  ;; implicit LANG-mode pattern for built-in modes
+  (should (eq 'python-mode  (erc-matterircd--lang-to-mode "python")))
+  (should (eq 'c-mode       (erc-matterircd--lang-to-mode "c")))
+  ;; unknown language returns nil
+  (should (null (erc-matterircd--lang-to-mode "nonexistent-lang-xyz"))))
+
+(ert-deftest erc-matterircd-test-fontify-code ()
+  "Test that fontify-code returns a propertized string."
+  ;; unknown language falls back to plain monospace
+  (should (equal (erc-matterircd--fontify-code "code" "nonexistent-lang-xyz")
+                 (propertize "code" 'face 'erc-matterircd-monospace-face)))
+  ;; known built-in mode: result is a string of the same length with
+  ;; erc-matterircd-monospace-face present as a base face
+  (let* ((code "(defun foo ())")
+         (result (erc-matterircd--fontify-code code "elisp")))
+    (should (stringp result))
+    (should (= (length result) (length code)))
+    ;; every character should have monospace as (part of) its face
+    (should (cl-every (lambda (pos)
+                        (let ((face (get-text-property pos 'face result)))
+                          (or (eq face 'erc-matterircd-monospace-face)
+                              (and (listp face)
+                                   (memq 'erc-matterircd-monospace-face face)))))
+                      (number-sequence 0 (1- (length code)))))))
+
+(ert-deftest erc-matterircd-test-code-blocks ()
+  "Test that fenced code blocks are formatted."
+  ;; no language hint: plain monospace
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "```\nfoo\nbar\n```")
+      (erc-matterircd-format-code-blocks)
+      (should (equal (get-text-property 1 'display)
+                     (propertize "foo\nbar" 'face 'erc-matterircd-monospace-face)))
+      (should (get-text-property 1 'rear-nonsticky))))
+  ;; known language: display matches fontify-code output
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "```elisp\n(defun foo ())\n```")
+      (erc-matterircd-format-code-blocks)
+      (should (equal (get-text-property 1 'display)
+                     (erc-matterircd--fontify-code "(defun foo ())" "elisp")))))
+  ;; unknown language: falls back to plain monospace
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "```nonexistent-lang-xyz\nfoo\n```")
+      (erc-matterircd-format-code-blocks)
+      (should (equal (get-text-property 1 'display)
+                     (propertize "foo" 'face 'erc-matterircd-monospace-face)))))
+  ;; ERC buffer format: each received line has a nick prefix "<nick> ";
+  ;; the formatter must match the block and strip that prefix from code lines.
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert " <nick> ```python\n <nick> x = 1\n <nick> ```\n")
+      (erc-matterircd-format-code-blocks)
+      (goto-char (point-min))
+      (re-search-forward "```")
+      (should (equal (get-text-property (match-beginning 0) 'display)
+                     (erc-matterircd--fontify-code "x = 1" "python")))))
+  ;; non-matterircd is a no-op
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'other)))
+      (insert "```\nfoo\n```")
+      (erc-matterircd-format-code-blocks)
+      (should (null (get-text-property 1 'display))))))
+
 (ert-deftest erc-matterircd-test-edit-indicators ()
   "Test that (edited) and (deleted) markers are dimmed."
   (with-temp-buffer
