@@ -444,6 +444,24 @@ Defaults to 10 lines if none specified."
 ;; ERC dispatches /SCROLLBACK by calling erc-cmd-SCROLLBACK
 (fset 'erc-cmd-SCROLLBACK #'erc-matterircd-scrollback)
 
+(defun erc-matterircd-search (line)
+  "Search mattermost messages for the query in LINE.
+
+Supports matterircd search modifiers: from:<user>, after:<date>,
+in:<channel>.  Optionally prefix LINE with a number to limit results."
+  (if (not (eq 'matterircd (erc-network)))
+      (erc-display-message nil 'error (current-buffer) 'not-matterircd)
+    (if (string-match "^\\s-*\\(.*\\S-\\)" line)
+        (erc-message "PRIVMSG"
+                     (format "mattermost search %s" (match-string 1 line)))
+      (erc-display-message nil 'error (current-buffer)
+                           'erc-matterircd-search-no-query))))
+
+;; ERC dispatches /SEARCH by calling erc-cmd-SEARCH
+(fset 'erc-cmd-SEARCH #'erc-matterircd-search)
+;; Pass the full line unparsed so multi-word queries reach the function intact
+(put 'erc-cmd-SEARCH 'do-not-parse-args t)
+
 (defun erc-matterircd--pending-requests-timeout ()
   "Timer function called when the pending requests timer expires."
   (let ((channel (caar erc-matterircd--pending-requests)))
@@ -539,6 +557,9 @@ will always resend if FORCE."
    (with-suppressed-warnings ((free-vars erc-message-english-not-matterircd))
      (set 'erc-message-english-not-matterircd
           "This command is specific to matterircd only."))
+   (with-suppressed-warnings ((free-vars erc-message-english-erc-matterircd-search-no-query))
+     (set 'erc-message-english-erc-matterircd-search-no-query
+          "No search query specified. Usage: /SEARCH [LIMIT] QUERY [from:USER] [in:CHANNEL] [after:DATE]"))
    (advice-add #'pcomplete-erc-nicks :around #'erc-matterircd-pcomplete-erc-nicks)
    (add-to-list 'erc-complete-functions #'erc-matterircd-complete-context-ids)
    (add-hook 'erc-after-connect #'erc-matterircd-connect-to-mattermost)

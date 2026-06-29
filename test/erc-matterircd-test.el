@@ -377,6 +377,39 @@
       ;; position 6 = one before point after scanning first [001] (positions 2-6)
       (should (= 6 (cdr (cdar ids)))))))
 
+(ert-deftest erc-matterircd-test-search ()
+  "Test that /SEARCH sends the correct PRIVMSG to mattermost."
+  (let (sent-type sent-msg)
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd))
+              ((symbol-function 'erc-message)
+               (lambda (type msg &rest _) (setq sent-type type sent-msg msg))))
+      ;; simple single-word query
+      (erc-matterircd-search " foo")
+      (should (equal sent-type "PRIVMSG"))
+      (should (equal sent-msg "mattermost search foo"))
+      ;; multi-word query preserved intact
+      (erc-matterircd-search " foo bar baz")
+      (should (equal sent-msg "mattermost search foo bar baz"))
+      ;; search modifiers passed through as-is
+      (erc-matterircd-search " 10 foo from:alice in:#general")
+      (should (equal sent-msg "mattermost search 10 foo from:alice in:#general"))))
+  ;; empty query shows error
+  (let (display-args)
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd))
+              ((symbol-function 'erc-display-message)
+               (lambda (&rest args) (setq display-args args))))
+      (with-temp-buffer
+        (erc-matterircd-search "   ")
+        (should (equal (nth 3 display-args) 'erc-matterircd-search-no-query)))))
+  ;; non-matterircd shows error
+  (let (display-args)
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'other))
+              ((symbol-function 'erc-display-message)
+               (lambda (&rest args) (setq display-args args))))
+      (with-temp-buffer
+        (erc-matterircd-search " foo")
+        (should (equal (nth 3 display-args) 'not-matterircd))))))
+
 (provide 'erc-matterircd-test)
 ;;; erc-matterircd-test.el ends here
 
