@@ -312,8 +312,11 @@ context id that can be referred to in subsequent posts to reply
 to, edit or delete a post."
   (when (eq 'matterircd (erc-network))
     (goto-char (point-min))
-    ;; this is either a prefix or suffix to the message
+    ;; this is either a prefix or suffix to the message; the third
+    ;; pattern handles prefix IDs that appear after the ERC nick display
+    ;; (e.g. "<nick> [001] text") where ^ no longer anchors to the ID
     (when (or (re-search-forward (concat "^\\s-*\\(" erc-matterircd-context-regexp "\\) ") nil t)
+              (re-search-forward (concat " \\(" erc-matterircd-context-regexp "\\) ") nil t)
               (re-search-forward (concat " \\(" erc-matterircd-context-regexp "\\)\\s-*$") nil t))
       ;; delete and propertize message with the context id
       (let ((full-id (match-string-no-properties 1))
