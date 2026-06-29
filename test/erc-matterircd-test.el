@@ -123,6 +123,74 @@
                                        'rear-nonsticky t)
                        " "))))))
 
+(ert-deftest erc-matterircd-test-blockquotes ()
+  "Test that block-quoted lines are formatted with the blockquote face."
+  ;; Default receive path: matterircd prefixes block quotes with "| "
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "<nick> | This is a quote")
+      (erc-matterircd-format-blockquotes)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat "<nick> "
+                       (propertize "| This is a quote"
+                                   'display
+                                   (propertize "| This is a quote"
+                                               'face 'erc-matterircd-blockquote-face)
+                                   'rear-nonsticky t))))))
+  ;; Send path / DisableMarkdown receive path: raw "> " Mattermost markdown
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "<nick> > This is a quote")
+      (erc-matterircd-format-blockquotes)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat "<nick> "
+                       (propertize "> This is a quote"
+                                   'display
+                                   (propertize "> This is a quote"
+                                               'face 'erc-matterircd-blockquote-face)
+                                   'rear-nonsticky t))))))
+  ;; "|" or ">" in the middle of a message is not a block quote
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "<nick> option A | option B")
+      (erc-matterircd-format-blockquotes)
+      (should (null (get-text-property 7 'display)))))
+  ;; Configurable blockquote char
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd))
+              ((symbol-value 'erc-matterircd-blockquote-char) "#"))
+      (insert "<nick> # This is a quote")
+      (erc-matterircd-format-blockquotes)
+      (should (ert-equal-including-properties
+               (buffer-substring (point-min) (point-max))
+               (concat "<nick> "
+                       (propertize "# This is a quote"
+                                   'display
+                                   (propertize "# This is a quote"
+                                               'face 'erc-matterircd-blockquote-face)
+                                   'rear-nonsticky t))))))
+  ;; PrefixContext mode: context ID between nick and quote marker is skipped
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'matterircd)))
+      (insert "<nick> [001] | This is a quote")
+      (erc-matterircd-format-blockquotes)
+      (let ((pos (with-current-buffer (current-buffer)
+                   (save-excursion
+                     (goto-char (point-min))
+                     (search-forward "| This")
+                     (match-beginning 0)))))
+        (should (equal (get-text-property pos 'display)
+                       (propertize "| This is a quote"
+                                   'face 'erc-matterircd-blockquote-face))))))
+  ;; Non-matterircd network: no-op
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'erc-network) (lambda () 'other)))
+      (insert "<nick> | This is a quote")
+      (erc-matterircd-format-blockquotes)
+      (should (null (get-text-property 7 'display))))))
+
 (ert-deftest erc-matterircd-test-monospace ()
   "Test that `monospace` gets handled appropriately."
   (with-temp-buffer

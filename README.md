@@ -17,6 +17,8 @@ to use [Mattermost](https://mattermost.org/) via
   that notifications to other users work correctly
 - Display `**bold text**` correctly as **bold text**
 - Display `_italic text_` correctly as _italic text_
+- Display Mattermost block quotes with a distinct face
+- Display `` ```lang `` fenced code blocks with syntax highlighting
 - Display `[link text](url)` as [link text](url)
 - Cleanup display of `/gif` to turn:
 ```
@@ -83,6 +85,30 @@ like this:
 (erc :server "localhost" :port "6667" :nick "mynick")
 ```
 
+### matterircd configuration
+
+Most formatting features (bold, italic, code blocks, etc.) work on messages
+you **send** regardless of how matterircd is configured.  For messages you
+**receive** from other Mattermost users, matterircd's default behaviour is to
+convert markdown to IRC formatting codes, which strips the raw markers before
+ERC sees them.  To have `erc-matterircd` format received markdown as well, add
+the following to your `matterircd.toml`:
+
+```toml
+[mattermost]
+DisableMarkdown = true
+```
+
+This passes Mattermost markdown through as plain text, letting `erc-matterircd`
+handle all rendering.  In particular, fenced code blocks (`` ``` ``) are only
+syntax-highlighted on the receive path when `DisableMarkdown = true`.
+
+Block quotes work with the default matterircd configuration: matterircd
+converts `> quoted text` to lines prefixed with `|` (controlled by
+`MarkdownBlockQuoteChar` in matterircd.toml), and `erc-matterircd` styles
+those lines with `erc-matterircd-blockquote-face`.  If you change
+`MarkdownBlockQuoteChar`, set `erc-matterircd-blockquote-char` to match.
+
 ## Development
 
 ### Unit tests
@@ -132,6 +158,6 @@ export `MM_ADMIN_TOKEN` and `MM_CHANNEL_ID` yourself before calling
 
 ## License
 
-Copyright © 2020 Alex Murray
+Copyright © 2026 Alex Murray
 
 Distributed under GNU GPL, version 3.

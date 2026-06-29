@@ -101,6 +101,13 @@ by default as they are usually not important."
   :group 'erc-matterircd
   :type 'boolean)
 
+(defcustom erc-matterircd-blockquote-char "|"
+  "Character matterircd uses to prefix block-quoted lines.
+Should match the MarkdownBlockQuoteChar setting in matterircd.toml,
+which defaults to \"|\"."
+  :group 'erc-matterircd
+  :type 'string)
+
 (defun erc-matterircd-connect-to-mattermost (server nick)
   "Try login to mattermost on SERVER with NICK."
   ;; server should contain matterircd somewhere in it
@@ -378,6 +385,38 @@ across those prefixes, and they are stripped from the captured code body."
                            (if (string-empty-p lang)
                                (propertize code 'face 'erc-matterircd-monospace-face)
                              (erc-matterircd--fontify-code code lang)))
+        (put-text-property start end 'rear-nonsticky t)))))
+
+(defface erc-matterircd-blockquote-face
+  '((t (:inherit font-lock-comment-face :slant italic)))
+  "Face for Mattermost block-quoted text.")
+
+(defun erc-matterircd-format-blockquotes ()
+  "Format block-quoted lines with `erc-matterircd-blockquote-face'.
+With the default matterircd configuration, Mattermost block quotes
+are converted to lines prefixed with `erc-matterircd-blockquote-char'
+(default \"|\").  Raw Mattermost markdown (lines beginning with \"> \")
+is also recognised, covering the send path and the receive path when
+DisableMarkdown is set in matterircd.toml.
+The pattern is anchored to the ERC nick prefix so that a \"|\" or \">\"
+appearing in the middle of a message is not mistaken for a block quote.
+An optional context ID (e.g. \"[001] \") between the nick and the quote
+marker is tolerated so that PrefixContext mode in matterircd.toml works."
+  (when (eq 'matterircd (erc-network))
+    (goto-char (point-min))
+    (while (re-search-forward
+            (concat "<[^>]+> "
+                    "\\(?:\\[[^]]*\\] \\)?"   ; optional [ctx] prefix
+                    "\\(\\(?:"
+                    (regexp-quote erc-matterircd-blockquote-char)
+                    "\\|>\\) .+\\)")
+            nil t)
+      (let* ((start (match-beginning 1))
+             (end (match-end 1))
+             (text (match-string-no-properties 1)))
+        (put-text-property start end
+                           'display
+                           (propertize text 'face 'erc-matterircd-blockquote-face))
         (put-text-property start end 'rear-nonsticky t)))))
 
 (defun erc-matterircd-format-reactions ()
@@ -662,6 +701,7 @@ will always resend if FORCE."
 (defvar erc-matterircd--run-first-hook-functions
   `(,#'erc-matterircd-cleanup-gifs
     ,#'erc-matterircd-format-code-blocks
+    ,#'erc-matterircd-format-blockquotes
     ,#'erc-matterircd-format-bolds
     ,#'erc-matterircd-format-italics
     ,#'erc-matterircd-format-strikethroughs
