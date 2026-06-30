@@ -355,37 +355,43 @@ In ERC channel buffers every received line carries a nick prefix such as
 \"<nick> \"; `[^\n]*' before the closing ``` allows the regex to match
 across those prefixes, and they are stripped from the captured code body."
   (when (eq 'matterircd (erc-network))
-    (goto-char (point-min))
-    ;; Group 1: optional language hint on the opening fence.
-    ;; Group 2: code body (whole lines, lazily).
-    ;; [^\n]* before the closing ``` absorbs any leading nick prefix so the
-    ;; pattern matches in a live ERC buffer as well as a plain temp buffer.
-    (while (re-search-forward
-            "```\\([^\n`]*\\)\n\\(\\(?:.*\n\\)*?\\)[^\n`]*```" nil t)
-      (let* ((start (match-beginning 0))
-             (end (match-end 0))
-             (lang (string-trim (match-string-no-properties 1)))
-             ;; Strip the ERC nick prefix ("<nick> ") from every code line.
-             ;; The first "> " on a line marks the end of "<nick>"; everything
-             ;; before it (inclusive) is dropped.  Lines without that pattern
-             ;; (e.g. on the send path) are left unchanged.
-             ;; NOTE: start/end are captured before these string operations
-             ;; because string-match inside the lambda clobbers match-data.
-             (code (mapconcat
-                    (lambda (line)
-                      (if (string-match "> " line)
-                          (substring line (match-end 0))
-                        line))
-                    (split-string
-                     (string-trim-right (match-string-no-properties 2) "\n")
-                     "\n")
-                    "\n")))
-        (put-text-property start end
-                           'display
-                           (if (string-empty-p lang)
-                               (propertize code 'face 'erc-matterircd-monospace-face)
-                             (erc-matterircd--fontify-code code lang)))
-        (put-text-property start end 'rear-nonsticky t)))))
+    ;; Widen so that multi-line code blocks whose lines arrive as separate
+    ;; PRIVMSGs (each processed by the insert/send hook in a narrowed buffer)
+    ;; are visible as a whole.  The closing ``` triggers the scan that finds
+    ;; the opening fence from an earlier insertion.
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      ;; Group 1: optional language hint on the opening fence.
+      ;; Group 2: code body (whole lines, lazily).
+      ;; [^\n]* before the closing ``` absorbs any leading nick prefix so the
+      ;; pattern matches in a live ERC buffer as well as a plain temp buffer.
+      (while (re-search-forward
+              "```\\([^\n`]*\\)\n\\(\\(?:.*\n\\)*?\\)[^\n`]*```" nil t)
+        (let* ((start (match-beginning 0))
+               (end (match-end 0))
+               (lang (string-trim (match-string-no-properties 1)))
+               ;; Strip the ERC nick prefix ("<nick> ") from every code line.
+               ;; The first "> " on a line marks the end of "<nick>"; everything
+               ;; before it (inclusive) is dropped.  Lines without that pattern
+               ;; (e.g. on the send path) are left unchanged.
+               ;; NOTE: start/end are captured before these string operations
+               ;; because string-match inside the lambda clobbers match-data.
+               (code (mapconcat
+                      (lambda (line)
+                        (if (string-match "> " line)
+                            (substring line (match-end 0))
+                          line))
+                      (split-string
+                       (string-trim-right (match-string-no-properties 2) "\n")
+                       "\n")
+                      "\n")))
+          (put-text-property start end
+                             'display
+                             (if (string-empty-p lang)
+                                 (propertize code 'face 'erc-matterircd-monospace-face)
+                               (erc-matterircd--fontify-code code lang)))
+          (put-text-property start end 'rear-nonsticky t))))))
 
 (defface erc-matterircd-blockquote-face
   '((t (:inherit font-lock-comment-face :slant italic)))

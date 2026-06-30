@@ -29,15 +29,20 @@
 ;;     absent — and is fully covered by the unit tests.
 ;;
 ;;   DisableMarkdown = true
-;;     Passes Mattermost markdown through as raw text so erc-matterircd can
-;;     format it (bold, italic, code blocks, block quotes, etc.).  This is the
-;;     only configuration in which formatting on the receive path is exercised
+;;     Passes Mattermost inline markdown (bold, italic, block quotes) through
+;;     as raw text so erc-matterircd can format it on the receive path.  This
+;;     is the only configuration in which receive-path formatting is exercised
 ;;     end-to-end; it is therefore the more interesting case to integration-test.
 ;;     With the matterircd default (DisableMarkdown = false) matterircd converts
 ;;     markdown to IRC control codes, which ERC renders natively without any
 ;;     erc-matterircd involvement.  That path requires no integration testing
 ;;     beyond confirming message delivery (T5), and the formatting behaviour of
 ;;     each individual formatter under that configuration is covered by unit tests.
+;;     Note: as of matterircd 0.30.0, ``` code-fence markers are no longer
+;;     passed through to IRC even with DisableMarkdown = true (they are stripped
+;;     and replaced with just the language name).  erc-matterircd-format-code-blocks
+;;     therefore only fires on the send path (when the ERC user explicitly types
+;;     ``` delimiters); T10 tests that path.
 ;;
 ;; No other matterircd settings materially affect erc-matterircd behaviour, so
 ;; a single integration run with this configuration is sufficient.
@@ -326,24 +331,26 @@ Looks for a display text property whose value is a string carrying
                  (lambda () (emt-buffer-contains "mattermost" "set viewed for"))
                  10)))
 
-  ;; ── T10: inbound code-block formatting ───────────────────────────
-  ;; With DisableMarkdown = true in matterircd.toml, matterircd passes
-  ;; ``` fences through as-is.  erc-matterircd-format-code-blocks scans
-  ;; the full ERC buffer on every insertion, so by the time the trailing
-  ;; marker line arrives the closing ``` has been processed and the
-  ;; display property is set.
-  (message "\nT10: inbound code-block formatting")
-  (if (string-empty-p emt-admin-token)
-      (message "  SKIP  (MM_ADMIN_TOKEN not set)")
-    (let* ((marker (format "codeblock-test-%d" (random 9999)))
-           ;; Marker comes AFTER the closing ``` so that when it appears
-           ;; in the buffer the formatter has already processed the block.
-           (posted (emt-post-via-api (format "```python\nx = 1\n```\n%s" marker))))
-      (unless posted
-        (message "  DEBUG: API post failed"))
-      (emt-wait-for (lambda () (emt-buffer-contains emt-mm-channel marker)) 20)
-      (emt-assert "code-block display property with monospace face set on inbound message"
-                  (emt-buffer-has-code-block-display emt-mm-channel))))
+  ;; ── T10: code-block formatting (send path) ───────────────────────────
+  ;; matterircd 0.30.0 strips ``` fence markers before forwarding Mattermost
+  ;; posts to IRC (even with DisableMarkdown = true), so the formatter cannot
+  ;; act on received code blocks.  It does fire on the send path: each line
+  ;; typed by the ERC user is a separate PRIVMSG; erc-matterircd-format-code-blocks
+  ;; widens the buffer (via save-restriction/widen) so the closing ``` line
+  ;; can see the opening fence from an earlier insertion and set the display
+  ;; property.
+  (message "\nT10: code-block formatting (send path)")
+  (when-let ((ch-buf (get-buffer emt-mm-channel)))
+    (with-current-buffer ch-buf
+      (erc-send-message "```python")
+      (erc-send-message "x = 1")
+      (erc-send-message "```"))
+    ;; The three erc-send-modify-hook invocations are synchronous; the display
+    ;; property is set before we reach accept-process-output.  The short wait
+    ;; lets ERC finish any deferred buffer work.
+    (accept-process-output nil 1)
+    (emt-assert "code-block display property with monospace face set on sent message"
+                (emt-buffer-has-code-block-display emt-mm-channel)))
 
   ;; ── T11: inbound block-quote formatting ──────────────────────────
   ;; With DisableMarkdown = true, matterircd passes "> text" through raw
