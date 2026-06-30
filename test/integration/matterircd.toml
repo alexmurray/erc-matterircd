@@ -1,5 +1,5 @@
 [mattermost]
-DefaultServer = "http://localhost:8065"
+DefaultServer = "localhost:8065"
 DefaultTeam = "testteam"
 # HTTP-only Mattermost instance used in tests
 Insecure = true
