@@ -1,1 +1,4 @@
 *.elc
+matterircd-lastsaved.db
+test/integration/.bin/
+test/integration/.logs/
