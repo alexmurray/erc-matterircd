@@ -1,6 +1,7 @@
 services:
   mattermost:
-    image: mattermost/mattermost-preview:latest
+    # matterircd 0.30.0 rejects Mattermost 12.x at login.
+    image: mattermost/mattermost-preview:11.8.2
     ports:
       - "8065:8065"
     environment:
