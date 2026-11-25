@@ -38,7 +38,8 @@
        (mm-pass    (or (getenv "MM_PASS")    "TestUser1!"))
        (mm-channel (or (getenv "MM_CHANNEL") "testchannel")))
 
-  (setq erc-matterircd-server   (replace-regexp-in-string "^https?://" "" mm-url)
+  (setq auth-sources              nil
+        erc-matterircd-server   (replace-regexp-in-string "^https?://" "" mm-url)
         erc-matterircd-team     mm-team
         erc-matterircd-password mm-pass
         erc-prompt-for-password nil

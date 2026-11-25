@@ -285,6 +285,40 @@
                    (buffer-substring (point-min) (point-max))
                    (concat " foo " suffix))))))))
 
+(ert-deftest erc-matterircd-test-context-ids-thread-reply ()
+  "Test that [->001,002] thread reply markers use the reply's own ID."
+  (dolist (replace '(nil "-"))
+    (with-temp-buffer
+      (cl-letf (((symbol-function 'erc-network)
+                 (lambda () 'matterircd)))
+        ;; Thread reply appears as a prefix after the ERC nick display
+        (insert "<testadmin> [->001,002] some message")
+        (let ((erc-matterircd-replace-context-id replace)
+              (props (list 'erc-matterircd-context-id "002"
+                           'erc-matterircd-source "<testadmin> [->001,002] some message"
+                           'help-echo "[->001,002]"
+                           'rear-nonsticky t))
+              (marker "[->001,002]"))
+          (erc-matterircd-format-contexts)
+          (when replace
+            (setq props (append props (list 'display replace
+                                            'emojify-inhibit t))))
+          (set-text-properties 0 (length marker) props marker)
+          (should (ert-equal-including-properties
+                   (buffer-substring (point-min) (point-max))
+                   (concat "<testadmin> " marker " some message")))
+          (erc-matterircd-buttonize-from-text-properties)
+          (setq props (append props (list 'font-lock-face 'erc-button
+                                          'mouse-face 'highlight
+                                          'erc-callback 'erc-matterircd-reply-to-context-id
+                                          'keymap erc-button-keymap
+                                          'rear-nonsticky t
+                                          'erc-data '("002"))))
+          (set-text-properties 0 (length marker) props marker)
+          (should (ert-equal-including-properties
+                   (buffer-substring (point-min) (point-max))
+                   (concat "<testadmin> " marker " some message"))))))))
+
 (ert-deftest erc-matterircd-test-cleanup-gifs ()
   "Test that GIF lines are reduced to just the URL."
   (with-temp-buffer

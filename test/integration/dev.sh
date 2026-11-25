@@ -46,13 +46,18 @@ MM_CHANNEL="${MM_CHANNEL_NAME:-testchannel}"
 export REPO_ROOT IRC_HOST IRC_PORT MM_URL MATTERIRCD_LOG
 export MM_TEAM MM_NICK MM_PASS MM_CHANNEL
 
+# ── Open Mattermost in browser ────────────────────────────────────────
+MM_ADMIN_USER="${MM_ADMIN_USER:-testadmin}"
+MM_ADMIN_PASS="${MM_ADMIN_PASS:-TestAdmin1!}"
+CHANNEL_URL="$MM_URL/$MM_TEAM/channels/$MM_CHANNEL"
+xdg-open "$CHANNEL_URL" 2>/dev/null || true
+
 # ── Launch Emacs ──────────────────────────────────────────────────────
 log ""
-log "  Mattermost UI : $MM_URL"
+log "  Mattermost UI : $CHANNEL_URL"
+log "    ERC user    : $MM_NICK / $MM_PASS"
+log "    Admin user  : $MM_ADMIN_USER / $MM_ADMIN_PASS"
 log "  IRC           : $IRC_HOST:$IRC_PORT"
-log "  Nick / pass   : $MM_NICK / $MM_PASS"
-log "  Team          : $MM_TEAM"
-log "  Channel       : #$MM_CHANNEL"
 log ""
 log "Launching Emacs — quit Emacs (C-x C-c) to tear down services."
 log "Set KEEP_SERVICES=1 to leave Mattermost and matterircd running afterwards."
